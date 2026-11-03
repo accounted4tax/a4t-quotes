@@ -1,0 +1,121 @@
+/* A4T Quotes - design system. Mobile-first. */
+:root {
+  --navy: #14213D;
+  --navy-2: #1E2F55;
+  --gold: #B08D2A;
+  --gold-soft: #F4ECD6;
+  --teal: #0E6E6B;
+  --teal-soft: #DCEFEE;
+  --ink: #1B1F27;
+  --muted: #5F6675;
+  --line: #E3E1DA;
+  --bg: #F7F5F0;
+  --card: #FFFFFF;
+  --danger: #A63A2B;
+  --danger-soft: #F7E3DF;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(20,33,61,.06), 0 6px 20px rgba(20,33,61,.06);
+  --font-head: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+h1, h2, h3 { font-family: var(--font-head); color: var(--navy); font-weight: 600; line-height: 1.2; margin: 0 0 .5rem; }
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.25rem; }
+p { margin: 0 0 1rem; }
+a { color: var(--teal); }
+
+/* Buttons and inputs: large enough to tap one-handed */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 48px; padding: 0 1.25rem; border-radius: 10px; border: 0;
+  font: 600 1rem var(--font-body); cursor: pointer; text-decoration: none;
+  background: var(--navy); color: #fff; width: 100%;
+}
+.btn:hover { background: var(--navy-2); }
+.btn:disabled { opacity: .6; cursor: wait; }
+.btn-ghost { background: transparent; color: var(--navy); border: 1px solid var(--line); width: auto; }
+.btn-ghost:hover { background: #fff; }
+
+label { display: block; font-weight: 600; font-size: .9rem; margin: 0 0 .35rem; color: var(--navy); }
+input[type=email], input[type=password], input[type=text], input[type=number], select, textarea {
+  width: 100%; min-height: 48px; padding: .7rem .9rem; font: 1rem var(--font-body);
+  border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--gold); }
+.field { margin-bottom: 1rem; }
+
+.alert { padding: .8rem 1rem; border-radius: 10px; margin-bottom: 1rem; font-size: .95rem; display: none; }
+.alert.show { display: block; }
+.alert-error { background: var(--danger-soft); color: var(--danger); }
+.alert-ok { background: var(--teal-soft); color: var(--teal); }
+
+/* Login page */
+.login-wrap { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 24px 16px; }
+.login-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 22px; width: 100%; max-width: 420px; margin: 0 auto; border-top: 4px solid var(--gold); }
+.brand { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.25rem; }
+.brand-mark { width: 40px; height: 40px; border-radius: 10px; background: var(--navy); color: var(--gold); display: grid; place-items: center; font: 700 1.05rem var(--font-head); }
+.brand-name { font: 600 1.15rem var(--font-head); color: var(--navy); }
+.brand-sub { font-size: .8rem; color: var(--muted); }
+.login-foot { text-align: center; font-size: .8rem; color: var(--muted); margin-top: 1.25rem; }
+
+/* App shell */
+.topbar { position: sticky; top: 0; z-index: 10; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+.topbar .brand { margin: 0; }
+.topbar .brand-name { color: #fff; }
+.topbar .brand-mark { background: var(--gold); color: var(--navy); width: 34px; height: 34px; }
+.topbar .btn-ghost { color: #fff; border-color: rgba(255,255,255,.25); min-height: 40px; padding: 0 .9rem; font-size: .9rem; }
+.topbar .btn-ghost:hover { background: rgba(255,255,255,.08); }
+
+.mode-badge { display: inline-block; font: 700 .7rem var(--font-body); letter-spacing: .06em; padding: .2rem .5rem; border-radius: 6px; vertical-align: middle; }
+.mode-test { background: var(--gold); color: var(--navy); }
+.mode-live { background: var(--teal); color: #fff; }
+
+main { padding: 20px 16px 96px; max-width: 1100px; margin: 0 auto; }
+.page-head { margin-bottom: 1.25rem; }
+.page-head p { color: var(--muted); margin: 0; }
+
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-bottom: 16px; }
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.stat { background: var(--card); border-radius: 12px; padding: 14px; box-shadow: var(--shadow); border-left: 4px solid var(--line); }
+.stat .n { font: 600 1.6rem var(--font-head); color: var(--navy); }
+.stat .l { font-size: .8rem; color: var(--muted); text-transform: capitalize; }
+.stat.s-sent { border-left-color: var(--gold); }
+.stat.s-paid, .stat.s-accepted { border-left-color: var(--teal); }
+.stat.s-expired, .stat.s-declined { border-left-color: var(--danger); }
+
+.check-list { list-style: none; padding: 0; margin: 0; }
+.check-list li { display: flex; gap: .6rem; padding: .55rem 0; border-bottom: 1px solid var(--line); font-size: .95rem; }
+.check-list li:last-child { border-bottom: 0; }
+.dot { width: 10px; height: 10px; border-radius: 50%; margin-top: .45rem; flex: 0 0 10px; background: var(--line); }
+.dot.ok { background: var(--teal); }
+.dot.todo { background: var(--gold); }
+.dot.bad { background: var(--danger); }
+
+/* Bottom nav on phones */
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); z-index: 10; }
+.bottom-nav a { flex: 1; text-align: center; font-size: .72rem; color: var(--muted); text-decoration: none; padding: 6px 0; border-radius: 8px; }
+.bottom-nav a.active { color: var(--navy); font-weight: 700; }
+.bottom-nav a.soon { opacity: .45; pointer-events: none; }
+.bottom-nav .ic { display: block; font-size: 1.2rem; line-height: 1.2; }
+
+@media (min-width: 768px) {
+  h1 { font-size: 2.1rem; }
+  .stat-grid { grid-template-columns: repeat(4, 1fr); }
+  main { padding: 32px 24px 40px; }
+  .bottom-nav { position: static; justify-content: flex-start; gap: 4px; border: 0; border-bottom: 1px solid var(--line); padding: 0 16px; background: #fff; }
+  .bottom-nav a { flex: 0 0 auto; padding: 12px 14px; font-size: .9rem; border-radius: 0; }
+  .bottom-nav a.active { box-shadow: inset 0 -3px 0 var(--gold); }
+  .bottom-nav .ic { display: none; }
+}

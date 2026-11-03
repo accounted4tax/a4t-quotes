@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sign in · A4T Quotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=1">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="brand">
+        <div class="brand-mark">A4</div>
+        <div>
+          <div class="brand-name">Accounted4Tax</div>
+          <div class="brand-sub">Quotes, engagement &amp; payments</div>
+        </div>
+      </div>
+
+      <h1>Sign in</h1>
+      <p style="color:var(--muted)">Practice admin only.</p>
+
+      <div id="msg" class="alert alert-error" role="alert"></div>
+
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="username" required value="info@accounted4tax.co.uk">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button id="btn" class="btn" type="submit">Sign in</button>
+      </form>
+      <p class="login-foot">Same login as your Practice Manager.</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=1"></script>
+  <script src="assets/js/app.js?v=1"></script>
+  <script>
+    (async function () {
+      const msg = document.getElementById('msg');
+      const btn = document.getElementById('btn');
+      const show = (t) => { msg.textContent = t; msg.classList.add('show'); };
+
+      if (new URLSearchParams(location.search).get('denied')) {
+        show('This account does not have admin access to A4T Quotes.');
+      }
+
+      // Already signed in? Go straight to the dashboard.
+      const { data: { session } } = await A4T.sb.auth.getSession();
+      if (session) { location.replace('dashboard.html'); return; }
+
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.classList.remove('show');
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!email || !password) { show('Enter your email and password.'); return; }
+        btn.disabled = true; btn.textContent = 'Signing in…';
+        const { error } = await A4T.sb.auth.signInWithPassword({ email, password });
+        if (error) {
+          show(error.message === 'Invalid login credentials' ? 'Email or password is incorrect.' : error.message);
+          btn.disabled = false; btn.textContent = 'Sign in';
+          return;
+        }
+        location.replace('dashboard.html');
+      });
+    })();
+  </script>
+</body>
+</html>
