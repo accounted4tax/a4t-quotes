@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=2">
+  <link rel="stylesheet" href="assets/css/app.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -23,7 +23,7 @@
     <a href="dashboard.html" class="active"><span class="ic">▦</span>Dashboard</a>
     <a class="soon" href="#"><span class="ic">✎</span>Quotes</a>
     <a class="soon" href="#"><span class="ic">☺</span>Clients</a>
-    <a class="soon" href="#"><span class="ic">£</span>Services</a>
+    <a href="services.html"><span class="ic">£</span>Services</a>
     <a class="soon" href="#"><span class="ic">⚙</span>Settings</a>
   </nav>
 
@@ -49,8 +49,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=2"></script>
-  <script src="assets/js/app.js?v=2"></script>
+  <script src="assets/js/config.js?v=3"></script>
+  <script src="assets/js/app.js?v=3"></script>
   <script>
     (async function () {
       const session = await A4T.requireAdmin();
@@ -89,8 +89,8 @@
       document.getElementById('stats').innerHTML = statuses.map(s =>
         `<div class="stat s-${s}"><div class="n">${counts[s]}</div><div class="l">${s}</div></div>`).join('');
 
-      addCheck('todo', 'Companies House lookup (Phase 2)');
-      addCheck('todo', 'Services & pricing catalogue (Phase 3)');
+      addCheck('todo', 'Companies House lookup: built, waiting for API key (Phase 2)');
+      addCheck('ok', 'Services & pricing catalogue (Phase 3)');
       addCheck('todo', 'Quote builder & Brevo emails (Phase 4)');
       document.getElementById('checks').innerHTML = checks.join('');
     })();

@@ -5,5 +5,5 @@ window.A4T_CONFIG = {
   SUPABASE_URL: 'https://luctaleodfjrrtubqble.supabase.co',
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_bsUem7ve2yyiAgqXYTCScQ_KNpkMvcJ',
   APP_NAME: 'A4T Quotes',
-  APP_VERSION: '0.1.0 (Phase 1)'
+  APP_VERSION: '0.3.0 (Phases 1–3)'
 };

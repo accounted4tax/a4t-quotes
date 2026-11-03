@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Services · A4T Quotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=3">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A4</div>
+      <div class="brand-name">A4T Quotes</div>
+    </div>
+    <button id="signout" class="btn btn-ghost" type="button">Sign out</button>
+  </header>
+
+  <nav class="bottom-nav" aria-label="Main">
+    <a href="dashboard.html"><span class="ic">▦</span>Dashboard</a>
+    <a class="soon" href="#"><span class="ic">✎</span>Quotes</a>
+    <a class="soon" href="#"><span class="ic">☺</span>Clients</a>
+    <a href="services.html" class="active"><span class="ic">£</span>Services</a>
+    <a class="soon" href="#"><span class="ic">⚙</span>Settings</a>
+  </nav>
+
+  <main>
+    <div class="page-head">
+      <h1>Services &amp; pricing</h1>
+      <p>What you offer and how each service is priced. Quotes are built from this list.</p>
+    </div>
+
+    <div id="err" class="alert alert-error" role="alert"></div>
+
+    <div class="toolbar">
+      <button id="add" class="btn btn-gold" type="button">+ Add service</button>
+      <div class="seg" id="filter">
+        <button type="button" data-f="active" class="on">Active</button>
+        <button type="button" data-f="archived">Archived</button>
+        <button type="button" data-f="all">All</button>
+      </div>
+    </div>
+
+    <div id="list"><p class="empty">Loading…</p></div>
+  </main>
+
+  <!-- Add / edit sheet -->
+  <div class="sheet-backdrop" id="backdrop"></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <h2 id="sheet-title">Service</h2>
+      <button class="x-btn" type="button" id="close" aria-label="Close">×</button>
+    </div>
+
+    <div id="form-err" class="alert alert-error" role="alert"></div>
+
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="f-name">Service name</label>
+        <input id="f-name" type="text" required maxlength="120" placeholder="e.g. Self Assessment (SA100)">
+      </div>
+
+      <div class="field">
+        <label for="f-desc">Short description <span style="font-weight:400;color:var(--muted)">(shown to the client)</span></label>
+        <textarea id="f-desc" rows="2" maxlength="400" placeholder="e.g. Preparation and filing of your annual tax return"></textarea>
+      </div>
+
+      <div class="field">
+        <label>How is it paid?</label>
+        <div class="opt-cards" id="kind">
+          <button type="button" class="opt-card" data-v="ongoing"><b>Ongoing</b><span>Client chooses pay in full or monthly</span></button>
+          <button type="button" class="opt-card" data-v="catch_up"><b>One-off</b><span>Catch-up or single job, paid once</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>How is it priced?</label>
+        <div class="opt-cards" id="ptype">
+          <button type="button" class="opt-card" data-v="fixed"><b>Fixed price</b><span>Same price every time</span></button>
+          <button type="button" class="opt-card" data-v="tiered_transactions"><b>Transactions</b><span>Bookkeeping volume</span></button>
+          <button type="button" class="opt-card" data-v="per_employee"><b>Per employee</b><span>Payroll</span></button>
+          <button type="button" class="opt-card" data-v="per_subcontractor"><b>Per subcontractor</b><span>CIS</span></button>
+        </div>
+      </div>
+
+      <div class="field" id="period-wrap">
+        <label for="f-period">The price is</label>
+        <select id="f-period">
+          <option value="monthly">Per month</option>
+          <option value="annual">Per year</option>
+          <option value="one_off">A one-off fee</option>
+        </select>
+        <p class="hint" id="period-hint"></p>
+      </div>
+
+      <!-- Fixed -->
+      <div class="field" id="fixed-wrap">
+        <label for="f-price">Price (£)</label>
+        <input id="f-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+      </div>
+
+      <!-- Quantity-based -->
+      <div id="qty-wrap">
+        <div class="field">
+          <label for="f-unit">Quantity label</label>
+          <input id="f-unit" type="text" maxlength="60" placeholder="e.g. transactions per month">
+        </div>
+        <div class="field">
+          <label>Price using</label>
+          <div class="seg" id="method">
+            <button type="button" data-v="rate">Base fee + rate</button>
+            <button type="button" data-v="bands">Price bands</button>
+          </div>
+        </div>
+        <div class="row2" id="rate-wrap">
+          <div class="field">
+            <label for="f-base">Base fee (£)</label>
+            <input id="f-base" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label for="f-rate">Rate per unit (£)</label>
+            <input id="f-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+        <div class="field" id="bands-wrap">
+          <div class="bands" id="bands"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="add-band" style="margin-top:8px">+ Add band</button>
+          <ul class="problems" id="band-problems"></ul>
+          <p class="hint">Leave “to” empty on the last band for “and above”.</p>
+        </div>
+      </div>
+
+      <div class="field calc">
+        <label for="calc-qty" id="calc-label">Price check</label>
+        <input id="calc-qty" type="number" inputmode="numeric" min="0" step="1" placeholder="Try a quantity" style="max-width:200px">
+        <div class="calc-out" id="calc-out">–</div>
+      </div>
+
+      <div class="field">
+        <label for="f-ctype">Available for</label>
+        <select id="f-ctype">
+          <option value="both">All client types</option>
+          <option value="sole_trader">Sole traders only</option>
+          <option value="landlord">Landlords only</option>
+          <option value="ltd">Limited companies only</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>HMRC authorisation needed for</label>
+        <div class="checks" id="tax">
+          <label><input type="checkbox" value="sa"> Self Assessment</label>
+          <label><input type="checkbox" value="ct"> Corporation Tax</label>
+          <label><input type="checkbox" value="paye"> PAYE</label>
+          <label><input type="checkbox" value="cis"> CIS</label>
+          <label><input type="checkbox" value="vat"> VAT</label>
+          <label><input type="checkbox" value="mtd"> MTD ITSA</label>
+        </div>
+        <p class="hint">Used after payment to create your HMRC authorisation task.</p>
+      </div>
+
+      <div class="field switch-row">
+        <label for="f-active">Active (can be added to quotes)</label>
+        <input id="f-active" class="tgl" type="checkbox" checked>
+      </div>
+
+      <div class="field">
+        <label for="f-sort">List position</label>
+        <input id="f-sort" type="number" inputmode="numeric" step="1" placeholder="0" style="max-width:140px">
+        <p class="hint">Lower numbers show first.</p>
+      </div>
+
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-ghost" id="cancel">Cancel</button>
+        <button type="submit" class="btn btn-teal" id="save">Save service</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=3"></script>
+  <script src="assets/js/app.js?v=3"></script>
+  <script src="assets/js/pricing.js?v=3"></script>
+  <script>
+  (async function () {
+    const session = await A4T.requireAdmin();
+    if (!session) return;
+    document.getElementById('signout').onclick = A4T.signOut;
+
+    const P = window.A4TPricing;
+    const $ = (id) => document.getElementById(id);
+    const esc = A4T.esc;
+    const money = (n) => A4T.money(n);
+
+    const PTYPE_LABEL = { fixed: 'Fixed', tiered_transactions: 'Transactions', per_employee: 'Per employee', per_subcontractor: 'Per subcontractor' };
+    const CTYPE_LABEL = { both: 'All clients', sole_trader: 'Sole traders', landlord: 'Landlords', ltd: 'Ltd companies' };
+    const UNIT_DEFAULT = { tiered_transactions: 'transactions per month', per_employee: 'employees', per_subcontractor: 'subcontractors' };
+
+    let services = [];
+    let filter = 'active';
+    let editing = null;   // working copy of the service being edited
+    let bands = [];       // working copy of bands
+
+    function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2200); }
+    function showErr(id, t) { const el = $(id); el.textContent = t; el.classList.toggle('show', !!t); }
+
+    // ---------- Load + list ----------
+    async function load() {
+      const [{ data: svc, error: e1 }, { data: bnd, error: e2 }] = await Promise.all([
+        A4T.sb.from('qs_services_catalogue').select('*').order('sort_order').order('name'),
+        A4T.sb.from('qs_service_price_bands').select('*').order('sort_order').order('min_qty'),
+      ]);
+      if (e1 || e2) { showErr('err', 'Could not load services: ' + (e1 || e2).message); return; }
+      services = svc.map(s => ({ ...s, bands: bnd.filter(b => b.service_id === s.id) }));
+      render();
+    }
+
+    function priceSummary(s) {
+      const suf = P.periodSuffix(s);
+      if (s.pricing_type === 'fixed') {
+        return s.default_price === null ? '<span style="color:var(--danger)">No price</span>' : money(s.default_price) + `<small>${suf.replace(' / ', 'per ') || 'one-off'}</small>`;
+      }
+      if (s.use_bands) {
+        const b = [...s.bands].sort((a, c) => a.min_qty - c.min_qty);
+        if (!b.length) return '<span style="color:var(--danger)">No bands</span>';
+        return 'from ' + money(b[0].price) + `<small>${b.length} band${b.length > 1 ? 's' : ''}${suf}</small>`;
+      }
+      const base = Number(s.base_fee || 0), rate = Number(s.per_unit_rate || 0);
+      return (base ? money(base) + ' + ' : '') + money(rate) + `<small>per ${esc((s.unit_label || 'unit').replace(/s\b.*$/, ''))}${suf}</small>`;
+    }
+
+    function render() {
+      const shown = services.filter(s => filter === 'all' || (filter === 'active' ? s.is_active : !s.is_active));
+      if (!shown.length) {
+        $('list').innerHTML = `<p class="empty">${filter === 'archived' ? 'No archived services.' : 'No services yet. Tap “Add service” to create your first one.'}</p>`;
+        return;
+      }
+      const groups = [['ongoing', 'Ongoing services'], ['catch_up', 'One-off services']];
+      $('list').innerHTML = groups.map(([k, title]) => {
+        const items = shown.filter(s => s.service_kind === k);
+        if (!items.length) return '';
+        return `<div class="group-title">${title} · ${items.length}</div>` + items.map(s => `
+          <div class="svc ${s.service_kind} ${s.is_active ? '' : 'inactive'}" data-id="${s.id}" tabindex="0" role="button">
+            <div class="svc-main">
+              <div class="svc-name">${esc(s.name)}</div>
+              <div class="svc-meta">
+                <span class="chip ${s.service_kind === 'catch_up' ? 'gold' : ''}">${PTYPE_LABEL[s.pricing_type]}</span>
+                <span class="chip grey">${CTYPE_LABEL[s.client_type]}</span>
+                ${s.is_active ? '' : '<span class="chip grey">Archived</span>'}
+              </div>
+            </div>
+            <div class="svc-price">${priceSummary(s)}</div>
+          </div>`).join('');
+      }).join('');
+      document.querySelectorAll('.svc').forEach(el => {
+        el.onclick = () => openSheet(services.find(s => s.id === el.dataset.id));
+        el.onkeydown = (e) => { if (e.key === 'Enter') el.click(); };
+      });
+    }
+
+    $('filter').onclick = (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      filter = b.dataset.f;
+      document.querySelectorAll('#filter button').forEach(x => x.classList.toggle('on', x === b));
+      render();
+    };
+
+    // ---------- Sheet ----------
+    function pick(groupId, value) {
+      document.querySelectorAll(`#${groupId} [data-v]`).forEach(x => x.classList.toggle('on', x.dataset.v === value));
+    }
+
+    function openSheet(s) {
+      showErr('form-err', '');
+      editing = s ? { ...s } : {
+        id: null, name: '', description: '', service_kind: 'ongoing', pricing_type: 'fixed', price_period: 'monthly',
+        default_price: null, base_fee: null, per_unit_rate: null, use_bands: false, unit_label: '', client_type: 'both',
+        hmrc_tax_types: [], is_active: true, sort_order: (services.length + 1) * 10,
+      };
+      bands = s ? s.bands.map(b => ({ min_qty: b.min_qty, max_qty: b.max_qty, price: b.price })) : [];
+      $('sheet-title').textContent = s ? 'Edit service' : 'New service';
+      $('f-name').value = editing.name || '';
+      $('f-desc').value = editing.description || '';
+      $('f-period').value = editing.price_period;
+      $('f-price').value = editing.default_price ?? '';
+      $('f-unit').value = editing.unit_label || '';
+      $('f-base').value = editing.base_fee ?? '';
+      $('f-rate').value = editing.per_unit_rate ?? '';
+      $('f-ctype').value = editing.client_type;
+      $('f-active').checked = !!editing.is_active;
+      $('f-sort').value = editing.sort_order ?? 0;
+      document.querySelectorAll('#tax input').forEach(c => c.checked = (editing.hmrc_tax_types || []).includes(c.value));
+      $('calc-qty').value = '';
+      syncForm();
+      $('backdrop').classList.add('open'); $('sheet').classList.add('open');
+      setTimeout(() => $('f-name').focus(), 50);
+    }
+    function closeSheet() { $('backdrop').classList.remove('open'); $('sheet').classList.remove('open'); editing = null; }
+    $('close').onclick = closeSheet; $('cancel').onclick = closeSheet; $('backdrop').onclick = closeSheet;
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && editing) closeSheet(); });
+    $('add').onclick = () => openSheet(null);
+
+    $('kind').onclick = (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      editing.service_kind = b.dataset.v;
+      if (b.dataset.v === 'catch_up') editing.price_period = 'one_off';
+      else if (editing.price_period === 'one_off') editing.price_period = 'monthly';
+      $('f-period').value = editing.price_period;
+      syncForm();
+    };
+    $('ptype').onclick = (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      const was = editing.pricing_type;
+      editing.pricing_type = b.dataset.v;
+      if (b.dataset.v !== 'fixed' && (!$('f-unit').value || $('f-unit').value === UNIT_DEFAULT[was])) $('f-unit').value = UNIT_DEFAULT[b.dataset.v];
+      if (b.dataset.v === 'tiered_transactions' && was !== 'tiered_transactions' && !editing.id) editing.use_bands = true;
+      syncForm();
+    };
+    $('method').onclick = (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      editing.use_bands = b.dataset.v === 'bands';
+      if (editing.use_bands && !bands.length) bands = [{ min_qty: 0, max_qty: '', price: '' }];
+      syncForm();
+    };
+    $('f-period').onchange = () => { editing.price_period = $('f-period').value; syncForm(); };
+
+    function syncForm() {
+      pick('kind', editing.service_kind);
+      pick('ptype', editing.pricing_type);
+      pick('method', editing.use_bands ? 'bands' : 'rate');
+      const fixed = editing.pricing_type === 'fixed';
+      $('fixed-wrap').style.display = fixed ? '' : 'none';
+      $('qty-wrap').style.display = fixed ? 'none' : '';
+      $('rate-wrap').style.display = !fixed && !editing.use_bands ? '' : 'none';
+      $('bands-wrap').style.display = !fixed && editing.use_bands ? '' : 'none';
+      // One-off services are always a one-off fee
+      $('f-period').querySelectorAll('option').forEach(o => o.disabled = editing.service_kind === 'catch_up' && o.value !== 'one_off');
+      $('period-hint').textContent = editing.service_kind === 'ongoing'
+        ? (editing.price_period === 'monthly' ? 'On quotes the yearly fee = monthly price × 12, then split over the payments left until the client’s year end.'
+          : editing.price_period === 'annual' ? 'On quotes this yearly fee is split over the payments left until the client’s year end.'
+          : 'Tip: ongoing services are usually priced per month or per year.')
+        : 'Paid once, in full.';
+      $('calc-qty').style.display = fixed ? 'none' : '';
+      $('calc-label').textContent = fixed ? 'Price check' : `Price check: enter ${$('f-unit').value || 'a quantity'}`;
+      renderBands();
+      runCalc();
+    }
+
+    // ---------- Bands ----------
+    function renderBands() {
+      if (!editing || !editing.use_bands || editing.pricing_type === 'fixed') { $('band-problems').innerHTML = ''; return; }
+      $('bands').innerHTML = `<div class="band-row head"><div>From</div><div>To</div><div>Price (£)</div><div></div></div>` +
+        bands.map((b, i) => `<div class="band-row">
+          <input type="number" inputmode="numeric" min="0" step="1" value="${b.min_qty ?? ''}" data-i="${i}" data-k="min_qty" aria-label="Band ${i + 1} from">
+          <input type="number" inputmode="numeric" min="0" step="1" value="${b.max_qty ?? ''}" data-i="${i}" data-k="max_qty" placeholder="and up" aria-label="Band ${i + 1} to">
+          <input type="number" inputmode="decimal" min="0" step="0.01" value="${b.price ?? ''}" data-i="${i}" data-k="price" aria-label="Band ${i + 1} price">
+          <button type="button" class="band-del" data-del="${i}" aria-label="Remove band ${i + 1}">×</button>
+        </div>`).join('');
+      showBandProblems();
+    }
+    function showBandProblems() {
+      const probs = P.checkBands(bands);
+      $('band-problems').innerHTML = probs.map(p => `<li>${esc(p)}</li>`).join('');
+    }
+    $('bands').oninput = (e) => {
+      const i = e.target.dataset.i, k = e.target.dataset.k; if (i === undefined) return;
+      bands[i][k] = e.target.value === '' ? '' : Number(e.target.value);
+      showBandProblems(); runCalc();
+    };
+    $('bands').onclick = (e) => {
+      const d = e.target.dataset.del; if (d === undefined) return;
+      bands.splice(Number(d), 1); renderBands(); runCalc();
+    };
+    $('add-band').onclick = () => {
+      const last = bands[bands.length - 1];
+      let from = 0;
+      if (last) {
+        if (last.max_qty === '' || last.max_qty === null) { last.max_qty = Number(last.min_qty || 0) + 99; }
+        from = Number(last.max_qty) + 1;
+      }
+      bands.push({ min_qty: from, max_qty: '', price: '' });
+      renderBands(); runCalc();
+    };
+
+    // ---------- Price check ----------
+    function currentService() {
+      return {
+        pricing_type: editing.pricing_type, price_period: editing.price_period, use_bands: editing.use_bands,
+        default_price: $('f-price').value === '' ? null : Number($('f-price').value),
+        base_fee: $('f-base').value === '' ? null : Number($('f-base').value),
+        per_unit_rate: $('f-rate').value === '' ? null : Number($('f-rate').value),
+        unit_label: $('f-unit').value, bands: bands.map(b => ({ ...b, max_qty: b.max_qty === '' ? null : b.max_qty })),
+      };
+    }
+    function runCalc() {
+      if (!editing) return;
+      const s = currentService();
+      const q = $('calc-qty').value;
+      if (s.pricing_type !== 'fixed' && q === '') { $('calc-out').innerHTML = '–<small>Enter a quantity to see the price</small>'; return; }
+      const r = P.calcPrice(s, q === '' ? 0 : Number(q));
+      if (r.price === null) { $('calc-out').innerHTML = '–<small>' + esc(r.error) + '</small>'; return; }
+      const yearly = editing.service_kind === 'ongoing' && s.price_period === 'monthly' ? ` · ${money(P.annualise(s, r.price))} a year` : '';
+      $('calc-out').innerHTML = money(r.price) + esc(P.periodSuffix(s)) + `<small>${esc(r.detail)}${yearly}</small>`;
+    }
+    ['f-price', 'f-base', 'f-rate', 'calc-qty'].forEach(id => $(id).addEventListener('input', runCalc));
+    $('f-unit').addEventListener('input', () => { $('calc-label').textContent = `Price check: enter ${$('f-unit').value || 'a quantity'}`; });
+
+    // ---------- Save ----------
+    $('form').onsubmit = async (e) => {
+      e.preventDefault();
+      showErr('form-err', '');
+      const s = currentService();
+      const name = $('f-name').value.trim();
+      if (!name) return showErr('form-err', 'Enter a service name.');
+      if (s.pricing_type === 'fixed' && (s.default_price === null || s.default_price < 0)) return showErr('form-err', 'Enter a price.');
+      if (s.pricing_type !== 'fixed') {
+        if (!s.unit_label.trim()) return showErr('form-err', 'Enter a quantity label, e.g. “employees”.');
+        if (s.use_bands) {
+          const probs = P.checkBands(bands);
+          if (probs.length) return showErr('form-err', 'Fix the price bands first: ' + probs[0]);
+        } else if (s.per_unit_rate === null) return showErr('form-err', 'Enter the rate per unit.');
+      }
+      if (editing.service_kind === 'catch_up') s.price_period = 'one_off';
+
+      const row = {
+        name,
+        description: $('f-desc').value.trim() || null,
+        client_type: $('f-ctype').value,
+        pricing_type: s.pricing_type,
+        service_kind: editing.service_kind,
+        price_period: s.price_period,
+        default_price: s.pricing_type === 'fixed' ? s.default_price : null,
+        base_fee: s.pricing_type !== 'fixed' && !s.use_bands ? (s.base_fee || 0) : null,
+        per_unit_rate: s.pricing_type !== 'fixed' && !s.use_bands ? s.per_unit_rate : null,
+        use_bands: s.pricing_type !== 'fixed' && s.use_bands,
+        unit_label: s.pricing_type === 'fixed' ? null : s.unit_label.trim(),
+        billing_type: s.price_period === 'one_off' ? 'one_off' : s.price_period,
+        is_recurring: editing.service_kind === 'ongoing',
+        is_mtd: [...document.querySelectorAll('#tax input:checked')].some(c => c.value === 'mtd'),
+        hmrc_tax_types: [...document.querySelectorAll('#tax input:checked')].map(c => c.value),
+        is_active: $('f-active').checked,
+        sort_order: Number($('f-sort').value || 0),
+      };
+
+      $('save').disabled = true; $('save').textContent = 'Saving…';
+      try {
+        let id = editing.id;
+        if (id) {
+          const { error } = await A4T.sb.from('qs_services_catalogue').update(row).eq('id', id);
+          if (error) throw error;
+        } else {
+          const { data, error } = await A4T.sb.from('qs_services_catalogue').insert(row).select('id').single();
+          if (error) throw error;
+          id = data.id;
+        }
+        // Replace bands
+        const { error: delErr } = await A4T.sb.from('qs_service_price_bands').delete().eq('service_id', id);
+        if (delErr) throw delErr;
+        if (row.use_bands) {
+          const rows = [...bands].sort((a, b) => a.min_qty - b.min_qty).map((b, i) => ({
+            service_id: id, min_qty: Number(b.min_qty), max_qty: b.max_qty === '' || b.max_qty === null ? null : Number(b.max_qty), price: Number(b.price), sort_order: i,
+          }));
+          const { error: insErr } = await A4T.sb.from('qs_service_price_bands').insert(rows);
+          if (insErr) throw insErr;
+        }
+        closeSheet();
+        toast('Saved');
+        await load();
+      } catch (err) {
+        showErr('form-err', 'Could not save: ' + err.message);
+      } finally {
+        $('save').disabled = false; $('save').textContent = 'Save service';
+      }
+    };
+
+    await load();
+  })();
+  </script>
+</body>
+</html>

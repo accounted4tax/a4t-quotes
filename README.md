@@ -21,12 +21,20 @@ This repository is public. It contains **no secrets**:
 |---|---|
 | `index.html` | Admin sign-in |
 | `dashboard.html` | Admin dashboard |
+| `services.html` | Services & pricing catalogue |
+| `assets/js/pricing.js` | Pricing engine shared by Services and (later) the Quote builder |
+
+## Edge Functions
+
+Source lives in `supabase/functions/` (deployed to Supabase; this copy is for reference).
+
+- `companies-house-lookup`: company number in, Companies House profile + officers out. Admin login required. Needs secret `COMPANIES_HOUSE_API_KEY`. Usage documented at the top of `index.ts`.
 
 ## Build phases
 
 1. Setup: repo, Supabase tables with RLS, admin login ✅
-2. Companies House lookup
-3. Services & pricing catalogue
+2. Companies House lookup (built, waiting for API key)
+3. Services & pricing catalogue ✅
 4. Quote builder, discounts, payment calculation, client quote page, Brevo
 5. Engagement letter, acceptance & signature, signed PDF
 6. Stripe Checkout, subscriptions, webhook, Customer Portal
