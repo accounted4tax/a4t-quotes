@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=4">
+  <link rel="stylesheet" href="assets/css/app.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -95,6 +95,19 @@
           <option value="one_off">A one-off fee</option>
         </select>
         <p class="hint" id="period-hint"></p>
+      </div>
+
+      <div class="field">
+        <label for="f-paystruct">Payment terms</label>
+        <select id="f-paystruct">
+          <option value="standard">Standard (pay in full or monthly)</option>
+          <option value="deposit_balance">Deposit now, balance before submission</option>
+        </select>
+        <div id="deposit-wrap" style="margin-top:8px">
+          <label for="f-deposit">Deposit taken on acceptance (£)</label>
+          <input id="f-deposit" type="number" inputmode="decimal" min="0" step="0.01" placeholder="99.00" style="max-width:180px">
+          <p class="hint">The balance is charged to the client's saved card before you submit to HMRC.</p>
+        </div>
       </div>
 
       <!-- Fixed -->
@@ -194,9 +207,9 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=4"></script>
-  <script src="assets/js/app.js?v=4"></script>
-  <script src="assets/js/pricing.js?v=4"></script>
+  <script src="assets/js/config.js?v=5"></script>
+  <script src="assets/js/app.js?v=5"></script>
+  <script src="assets/js/pricing.js?v=5"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -308,6 +321,8 @@
       $('f-base').value = editing.base_fee ?? '';
       $('f-rate').value = editing.per_unit_rate ?? '';
       $('f-incl').value = editing.included_units || '';
+      $('f-paystruct').value = editing.payment_structure || 'standard';
+      $('f-deposit').value = editing.deposit_amount ?? '';
       $('f-size').value = editing.unit_size && Number(editing.unit_size) !== 1 ? Number(editing.unit_size) : '';
       $('f-ctype').value = editing.client_type;
       $('f-active').checked = !!editing.is_active;
@@ -347,6 +362,7 @@
       syncForm();
     };
     $('f-period').onchange = () => { editing.price_period = $('f-period').value; syncForm(); };
+    $('f-paystruct').onchange = () => syncForm();
 
     function syncForm() {
       pick('kind', editing.service_kind);
@@ -355,6 +371,7 @@
       const fixed = editing.pricing_type === 'fixed';
       $('fixed-wrap').style.display = fixed ? '' : 'none';
       $('qty-wrap').style.display = fixed ? 'none' : '';
+      $('deposit-wrap').style.display = $('f-paystruct').value === 'deposit_balance' ? '' : 'none';
       const income = editing.pricing_type === 'income_based';
       if (income) editing.use_bands = false;
       $('method-wrap').style.display = income ? 'none' : '';
@@ -362,6 +379,7 @@
       $('incl-wrap').style.display = !fixed && !income ? '' : 'none';
       $('size-wrap').style.display = income ? '' : 'none';
       $('f-rate-label').textContent = income ? 'Rate per income step (£)' : 'Rate per unit (£)';
+      document.querySelector('#size-wrap .hint').textContent = 'e.g. 10000 = rate charged for each £10,000 of estimated income or part of it (£1–£10,000 = 1 step).';
       $('bands-wrap').style.display = !fixed && editing.use_bands ? '' : 'none';
       // One-off services are always a one-off fee
       $('f-period').querySelectorAll('option').forEach(o => o.disabled = editing.service_kind === 'catch_up' && o.value !== 'one_off');
@@ -421,6 +439,8 @@
         per_unit_rate: $('f-rate').value === '' ? null : Number($('f-rate').value),
         included_units: $('f-incl').value === '' ? 0 : Number($('f-incl').value),
         unit_size: editing.pricing_type === 'income_based' ? (Number($('f-size').value) || 10000) : 1,
+        payment_structure: $('f-paystruct').value,
+        deposit_amount: $('f-deposit').value === '' ? null : Number($('f-deposit').value),
         unit_label: $('f-unit').value, bands: bands.map(b => ({ ...b, max_qty: b.max_qty === '' ? null : b.max_qty })),
       };
     }
@@ -432,9 +452,11 @@
       const r = P.calcPrice(s, q === '' ? 0 : Number(q));
       if (r.price === null) { $('calc-out').innerHTML = '–<small>' + esc(r.error) + '</small>'; return; }
       const yearly = editing.service_kind === 'ongoing' && s.price_period === 'monthly' ? ` · ${money(P.annualise(s, r.price))} a year` : '';
-      $('calc-out').innerHTML = money(r.price) + esc(P.periodSuffix(s)) + `<small>${esc(r.detail)}${yearly}</small>`;
+      const split = P.splitDeposit(s, r.price);
+      const splitTxt = split ? ` · ${money(split.deposit)} on acceptance, ${money(split.balance)} before submission` : '';
+      $('calc-out').innerHTML = money(r.price) + esc(P.periodSuffix(s)) + `<small>${esc(r.detail)}${yearly}${splitTxt}</small>`;
     }
-    ['f-price', 'f-base', 'f-rate', 'f-incl', 'f-size', 'calc-qty'].forEach(id => $(id).addEventListener('input', runCalc));
+    ['f-price', 'f-base', 'f-rate', 'f-incl', 'f-size', 'f-deposit', 'calc-qty'].forEach(id => $(id).addEventListener('input', runCalc));
     $('f-unit').addEventListener('input', () => { $('calc-label').textContent = `Price check: enter ${$('f-unit').value || 'a quantity'}`; });
 
     // ---------- Save ----------
@@ -453,6 +475,7 @@
         } else if (s.per_unit_rate === null) return showErr('form-err', 'Enter the rate per unit.');
       }
       if (editing.service_kind === 'catch_up') s.price_period = 'one_off';
+      if (s.payment_structure === 'deposit_balance' && (s.deposit_amount === null || s.deposit_amount < 0)) return showErr('form-err', 'Enter the deposit amount.');
 
       const row = {
         name,
@@ -467,6 +490,8 @@
         use_bands: s.pricing_type !== 'fixed' && s.use_bands,
         unit_label: s.pricing_type === 'fixed' ? null : s.unit_label.trim(),
         unit_size: s.pricing_type === 'income_based' ? s.unit_size : 1,
+        payment_structure: s.payment_structure,
+        deposit_amount: s.payment_structure === 'deposit_balance' ? (s.deposit_amount || 0) : null,
         included_units: s.pricing_type !== 'fixed' && s.pricing_type !== 'income_based' && !s.use_bands ? Math.max(0, Math.floor(s.included_units || 0)) : 0,
         billing_type: s.price_period === 'one_off' ? 'one_off' : s.price_period,
         is_recurring: editing.service_kind === 'ongoing',

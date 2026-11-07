@@ -39,11 +39,12 @@
     const rate = Number(service.per_unit_rate || 0);
     const size = Number(service.unit_size || 1) > 0 ? Number(service.unit_size || 1) : 1;
     const included = Math.max(0, Number(service.included_units || 0));
-    const units = Math.floor(q / size);            // e.g. £35,000 income / 10,000 = 3 units
+    // Income: every started step counts (£1–£10,000 = 1, £10,001–£20,000 = 2). Head counts: whole units.
+    const units = type === 'income_based' ? Math.ceil(q / size) : Math.floor(q / size);
     const charged = Math.max(0, units - included);  // e.g. 8 employees, 5 included = 3 charged
     const money = (n) => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let detail;
-    if (type === 'income_based') detail = `${money(base)} base + ${charged} × ${money(rate)} per £${size.toLocaleString('en-GB')} of income`;
+    if (type === 'income_based') detail = `${money(base)} base + ${charged} × ${money(rate)} (each £${size.toLocaleString('en-GB')} or part of income)`;
     else if (included) detail = `${money(base)} covers up to ${included}; ${charged} extra × ${money(rate)}`;
     else detail = `${money(base)} base + ${charged} × ${money(rate)}`;
     return { price: round2(base + rate * charged), detail };
@@ -80,7 +81,14 @@
   const PERIOD_SUFFIX = { one_off: '', monthly: ' / month', annual: ' / year' };
   function periodSuffix(service) { return PERIOD_SUFFIX[service.price_period] || ''; }
 
-  const api = { calcPrice, checkBands, bandLabel, round2, annualise, periodSuffix };
+  // Deposit now, balance before submission (e.g. Self Assessment: £99 now, rest before filing).
+  function splitDeposit(service, price) {
+    if (service.payment_structure !== 'deposit_balance' || price === null || price === undefined) return null;
+    const deposit = round2(Math.min(Number(service.deposit_amount || 0), price));
+    return { deposit, balance: round2(price - deposit) };
+  }
+
+  const api = { calcPrice, checkBands, bandLabel, round2, annualise, periodSuffix, splitDeposit };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.A4TPricing = api;
 })(typeof window !== 'undefined' ? window : globalThis);
