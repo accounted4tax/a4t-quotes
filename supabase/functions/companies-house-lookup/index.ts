@@ -25,6 +25,9 @@
 //     accounting_reference_date: { day, month, label },        // e.g. "31 March"
 //     upcoming_year_end,           // ISO date — next accounting year end on/after today. USE THIS for quotes.
 //     next_accounts_period_end,    // ISO date — end of the next period to be FILED (can be in the past)
+//     outstanding_accounts: [{ period_end, due_date, overdue }], // periods ended before today, not yet filed
+//                                  //   -> quote these as CATCH-UP (one-off) work
+//     accounts_overdue, confirmation_statement_overdue,  // booleans from Companies House
 //     next_accounts_period_start, accounts_due_date, last_accounts_made_up_to,
 //     confirmation_statement_due_date, confirmation_statement_made_up_to,
 //     officers: [{ name, role, appointed_on, resigned_on, nationality, occupation,
@@ -76,6 +79,30 @@ export function upcomingYearEnd(day: number | null, month: number | null, from =
     if (d >= today) return d.toISOString().slice(0, 10);
   }
   return null;
+}
+
+// Every accounting period that has already ended but is not yet filed, oldest first.
+// Companies House only reports the first unfiled period; later ones are inferred one year apart.
+// Due date for inferred periods = period end + 9 months (private company rule).
+export function outstandingPeriods(firstEnd: string | null, firstDue: string | null, from = new Date()) {
+  if (!firstEnd) return [];
+  const today = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+  const out: { period_end: string; due_date: string | null; overdue: boolean }[] = [];
+  const start = new Date(firstEnd + 'T00:00:00Z');
+  for (let i = 0; i < 10; i++) {
+    const y = start.getUTCFullYear() + i, m = start.getUTCMonth();
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const end = new Date(Date.UTC(y, m, Math.min(start.getUTCDate(), last)));
+    if (end >= today) break;
+    let due: string | null = i === 0 ? firstDue : null;
+    if (!due) {
+      const dm = m + 9, dy = y + Math.floor(dm / 12), mm = dm % 12;
+      const dl = new Date(Date.UTC(dy, mm + 1, 0)).getUTCDate();
+      due = new Date(Date.UTC(dy, mm, Math.min(end.getUTCDate(), dl))).toISOString().slice(0, 10);
+    }
+    out.push({ period_end: end.toISOString().slice(0, 10), due_date: due, overdue: !!due && new Date(due + 'T00:00:00Z') < today });
+  }
+  return out;
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -178,6 +205,11 @@ Deno.serve(async (req) => {
     next_accounts_period_start: a.next_accounts?.period_start_on || null,
     next_accounts_period_end: a.next_accounts?.period_end_on || a.next_made_up_to || null,
     accounts_due_date: a.next_accounts?.due_on || a.next_due || null,
+    outstanding_accounts: outstandingPeriods(
+      a.next_accounts?.period_end_on || a.next_made_up_to || null,
+      a.next_accounts?.due_on || a.next_due || null),
+    accounts_overdue: !!(a.next_accounts?.overdue || a.overdue),
+    confirmation_statement_overdue: !!c.confirmation_statement?.overdue,
     last_accounts_made_up_to: a.last_accounts?.made_up_to || null,
     confirmation_statement_due_date: c.confirmation_statement?.next_due || null,
     confirmation_statement_made_up_to: c.confirmation_statement?.next_made_up_to || null,

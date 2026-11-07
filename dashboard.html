@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=5">
+  <link rel="stylesheet" href="assets/css/app.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -49,8 +49,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=5"></script>
-  <script src="assets/js/app.js?v=5"></script>
+  <script src="assets/js/config.js?v=6"></script>
+  <script src="assets/js/app.js?v=6"></script>
   <script>
     (async function () {
       const session = await A4T.requireAdmin();
@@ -110,7 +110,9 @@
         if (data && data.company_name) {
           dot.className = 'dot ok';
           const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-          txt.innerHTML = `Companies House lookup working: <b>${A4T.esc(data.company_name)}</b> (${A4T.esc(data.company_status || '')}). Current year end ${A4T.esc(fmt(data.upcoming_year_end))}; accounts for period to ${A4T.esc(fmt(data.next_accounts_period_end))} due ${A4T.esc(fmt(data.accounts_due_date))}; ${data.officers.length} officer${data.officers.length === 1 ? '' : 's'}.`;
+          const os = data.outstanding_accounts || [];
+          const osTxt = os.length ? `Outstanding accounts (catch-up): ${os.map(p => `period to ${fmt(p.period_end)}, due ${fmt(p.due_date)}${p.overdue ? ' OVERDUE' : ''}`).join('; ')}` : 'No outstanding accounts';
+          txt.innerHTML = `Companies House lookup working: <b>${A4T.esc(data.company_name)}</b> (${A4T.esc(data.company_status || '')}). Current year end (monthly services) ${A4T.esc(fmt(data.upcoming_year_end))}. ${A4T.esc(osTxt)}. ${data.officers.length} officer${data.officers.length === 1 ? '' : 's'}.`;
         } else {
           dot.className = 'dot bad';
           txt.textContent = 'Companies House lookup failed: ' + (err || 'no data returned');
