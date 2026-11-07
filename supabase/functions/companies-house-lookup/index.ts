@@ -23,7 +23,8 @@
 //     company_number, company_name, company_status, company_type, date_of_creation,
 //     sic_codes[], registered_office: { lines[], postcode, country, single_line },
 //     accounting_reference_date: { day, month, label },        // e.g. "31 March"
-//     next_accounts_period_end,    // ISO date — use as the Ltd year end for quotes
+//     upcoming_year_end,           // ISO date — next accounting year end on/after today. USE THIS for quotes.
+//     next_accounts_period_end,    // ISO date — end of the next period to be FILED (can be in the past)
 //     next_accounts_period_start, accounts_due_date, last_accounts_made_up_to,
 //     confirmation_statement_due_date, confirmation_statement_made_up_to,
 //     officers: [{ name, role, appointed_on, resigned_on, nationality, occupation,
@@ -63,6 +64,18 @@ export function normaliseCompanyNumber(raw: string): string | null {
   const digits = m[2].padStart(8 - prefix.length, '0');
   const out = prefix + digits;
   return out.length === 8 ? out : null;
+}
+
+// Next date on/after `from` that falls on the accounting reference day/month (UTC dates).
+export function upcomingYearEnd(day: number | null, month: number | null, from = new Date()): string | null {
+  if (!day || !month) return null;
+  const today = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+  for (const y of [today.getUTCFullYear(), today.getUTCFullYear() + 1]) {
+    const last = new Date(Date.UTC(y, month, 0)).getUTCDate(); // handles 29 Feb
+    const d = new Date(Date.UTC(y, month - 1, Math.min(day, last)));
+    if (d >= today) return d.toISOString().slice(0, 10);
+  }
+  return null;
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -161,6 +174,7 @@ Deno.serve(async (req) => {
       month: ardMonth,
       label: ardDay && ardMonth ? `${ardDay} ${MONTHS[ardMonth - 1]}` : null,
     },
+    upcoming_year_end: upcomingYearEnd(ardDay, ardMonth),
     next_accounts_period_start: a.next_accounts?.period_start_on || null,
     next_accounts_period_end: a.next_accounts?.period_end_on || a.next_made_up_to || null,
     accounts_due_date: a.next_accounts?.due_on || a.next_due || null,

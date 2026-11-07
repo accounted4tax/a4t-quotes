@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=4">
+  <link rel="stylesheet" href="assets/css/app.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -49,8 +49,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=4"></script>
-  <script src="assets/js/app.js?v=4"></script>
+  <script src="assets/js/config.js?v=5"></script>
+  <script src="assets/js/app.js?v=5"></script>
   <script>
     (async function () {
       const session = await A4T.requireAdmin();
@@ -109,8 +109,8 @@
         } catch (e) { err = e.message; }
         if (data && data.company_name) {
           dot.className = 'dot ok';
-          const ye = data.next_accounts_period_end ? new Date(data.next_accounts_period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-          txt.innerHTML = `Companies House lookup working: <b>${A4T.esc(data.company_name)}</b> (${A4T.esc(data.company_status || '')}), next year end ${A4T.esc(ye)}, ${data.officers.length} officer${data.officers.length === 1 ? '' : 's'}`;
+          const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+          txt.innerHTML = `Companies House lookup working: <b>${A4T.esc(data.company_name)}</b> (${A4T.esc(data.company_status || '')}). Current year end ${A4T.esc(fmt(data.upcoming_year_end))}; accounts for period to ${A4T.esc(fmt(data.next_accounts_period_end))} due ${A4T.esc(fmt(data.accounts_due_date))}; ${data.officers.length} officer${data.officers.length === 1 ? '' : 's'}.`;
         } else {
           dot.className = 'dot bad';
           txt.textContent = 'Companies House lookup failed: ' + (err || 'no data returned');
