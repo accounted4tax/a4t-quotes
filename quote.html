@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=8">
+  <link rel="stylesheet" href="assets/css/app.css?v=9">
 </head>
 <body>
   <header class="topbar">
@@ -101,11 +101,11 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=8"></script>
-  <script src="assets/js/app.js?v=8"></script>
-  <script src="assets/js/pricing.js?v=8"></script>
-  <script src="assets/js/quote-calc.js?v=8"></script>
-  <script src="assets/js/client-form.js?v=8"></script>
+  <script src="assets/js/config.js?v=9"></script>
+  <script src="assets/js/app.js?v=9"></script>
+  <script src="assets/js/pricing.js?v=9"></script>
+  <script src="assets/js/quote-calc.js?v=9"></script>
+  <script src="assets/js/client-form.js?v=9"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -141,7 +141,7 @@
       quote = qd;
       const { data: ql } = await A4T.sb.from('qs_quote_lines').select('*').eq('quote_id', quote.id).order('sort_order');
       lines = (ql || []).map(l => ({
-        service_id: l.service_id, service: svcById(l.service_id) || { name: l.description, pricing_type: 'fixed', default_price: l.unit_price, price_period: l.price_period, service_kind: l.service_kind },
+        service_id: l.service_id, service: svcById(l.service_id) || { name: l.description, pricing_type: 'fixed', default_price: l.unit_price, price_period: l.price_period, service_kind: l.service_kind, runs_until_cancelled: l.runs_until_cancelled },
         quantity: l.quantity, price_override: l.price_override ? l.unit_price : null, discount_type: l.discount_type, discount_value: l.discount_value,
         is_earlier_year: l.is_earlier_year, months: l.months, period_label: l.period_label || '',
       }));
@@ -221,6 +221,7 @@
       if (!cl) return '';
       if (cl.kind === 'deposit_balance') return `<span class="chip gold">${money(cl.deposit)} on acceptance · ${money(cl.balance)} before submission</span>`;
       if (cl.kind === 'one_off') return '<span class="chip gold">Catch-up · one-off</span>';
+      if (cl.group === 'rolling') return '<span class="chip">Monthly plan · until cancelled</span>';
       if (cl.group === 'monthly') return '<span class="chip">Monthly service</span>';
       return '<span class="chip">Year-end service · spread monthly</span>';
     }
@@ -350,10 +351,11 @@
           <dt><b>Total</b></dt><dd><b>${money(t.total)}</b></dd>
         </dl>
         <div class="pay-opts">
-          <div class="pay-opt"><b>Pay in full</b><span>${money(o.one_off.due_now)} on acceptance</span></div>
+          <div class="pay-opt"><b>${t.ongoing_total > 0 ? 'Pay in full' : 'On acceptance'}</b><span>${money(o.one_off.due_now)}${t.rolling_monthly ? `, then ${money(t.rolling_monthly)} a month until cancelled` : ' on acceptance'}</span></div>
           ${o.monthly ? `<div class="pay-opt"><b>Pay monthly</b><span>${money(o.monthly.due_now)} on acceptance, then ${esc(o.monthly.then)} (last ${esc(fd(s.last_payment_date))})</span></div>`
             : (t.ongoing_total > 0 ? '<div class="pay-opt muted"><b>Monthly</b><span>Not available for this quote</span></div>' : '')}
           ${o.monthly && s.year_end_per_month && s.monthly_services_per_month ? `<div class="pay-opt"><b>Monthly fee</b><span>${money(s.year_end_per_month)} year-end services + ${money(s.monthly_services_per_month)} monthly services</span></div>` : ''}
+          ${t.rolling_monthly ? `<div class="pay-opt"><b>Monthly plans</b><span>${money(t.rolling_monthly)} a month until the client cancels (not tied to the year end)</span></div>` : ''}
           ${t.balance_later ? `<div class="pay-opt"><b>Later</b><span>${money(t.balance_later)} balance before submission to HMRC</span></div>` : ''}
         </div>
         ${errs.length ? `<ul class="problems">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;
@@ -370,7 +372,7 @@
         tax_year: quote.year_end_date ? (client && client.client_type !== 'ltd' ? Q.taxYearLabel(quote.year_end_date) : 'Year ending ' + fd(quote.year_end_date)) : null,
         discount_type: quote.discount_type || 'none', discount_value: Number(quote.discount_value || 0), discount_reason: quote.discount_reason || null,
         subtotal: t.subtotal, discount_total: t.discount_total, total: t.total,
-        one_off_total: t.one_off_total, ongoing_total: t.ongoing_total, one_off_due_now: t.one_off_due_now, balance_later: t.balance_later,
+        one_off_total: t.one_off_total, ongoing_total: t.ongoing_total, rolling_monthly: t.rolling_monthly, one_off_due_now: t.one_off_due_now, balance_later: t.balance_later,
         late_start: s.late_start, late_start_mode: s.late_start ? (quote.late_start_mode || 'single_payment') : null,
         payments_count: s.monthly_allowed ? s.payments_count : null, monthly_amount: s.monthly_allowed ? s.monthly_amount : null,
         monthly_allowed: s.monthly_allowed, first_payment_date: s.first_payment_date, last_payment_date: s.last_payment_date,
@@ -404,7 +406,7 @@
         discount_amount: cl.discount_amount, quote_discount_amount: cl.quote_discount, gross_amount: cl.gross, line_total: cl.net,
         charge_kind: cl.kind, payment_structure: cl.kind === 'deposit_balance' ? 'deposit_balance' : 'standard',
         deposit_amount: cl.kind === 'deposit_balance' ? cl.deposit : null, balance_amount: cl.kind === 'deposit_balance' ? cl.balance : null,
-        loe_schedule_key: cl.service.loe_schedule_key || null, calc_detail: cl.detail, sort_order: i,
+        loe_schedule_key: cl.service.loe_schedule_key || null, calc_detail: cl.detail, sort_order: i, runs_until_cancelled: !!cl.rolling,
       }));
       const { error: ie } = await A4T.sb.from('qs_quote_lines').insert(rows);
       if (ie) throw ie;

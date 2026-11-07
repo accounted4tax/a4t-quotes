@@ -17,7 +17,7 @@ export const fd = (d?: string | null) => !d ? '' : new Date(String(d).length ===
 
 // ---------- view model (mirrors q.html) ----------
 export type Line = { description: string; about?: string | null; period_label?: string | null; quantity?: number | null; unit_label?: string | null; unit_price?: number | null;
-  is_earlier_year?: boolean; pricing_type?: string; months?: number | null; price_period?: string | null; kind: string; gross: number; discount: number; total: number; deposit?: number | null; balance?: number | null };
+  is_earlier_year?: boolean; pricing_type?: string; months?: number | null; price_period?: string | null; kind: string; gross: number; discount: number; total: number; deposit?: number | null; balance?: number | null; rolling?: boolean };
 
 // "Accounts for the year ended 31 May 2025" → "31 May 2025"
 function periodDate(label?: string | null) {
@@ -52,8 +52,8 @@ export function lineLabel(l: Line, hidePeriod = false) {
 
 export function buildView(d: { quote: any; lines: Line[]; client: any }) {
   const q = d.quote, L = d.lines;
-  const grp = (l: Line) => l.kind === 'deposit_balance' ? 'sa' : l.kind === 'one_off' ? 'catch_up' : (l.price_period === 'monthly' ? 'monthly' : 'year_end');
-  const G: Record<string, Line[]> = { catch_up: [], sa: [], year_end: [], monthly: [] };
+  const grp = (l: Line) => l.kind === 'deposit_balance' ? 'sa' : l.kind === 'one_off' ? 'catch_up' : l.rolling ? 'rolling' : (l.price_period === 'monthly' ? 'monthly' : 'year_end');
+  const G: Record<string, Line[]> = { catch_up: [], sa: [], year_end: [], monthly: [], rolling: [] };
   L.forEach((l) => G[grp(l)].push(l));
   const sum = (a: Line[], f: (l: Line) => number) => r2(a.reduce((s, x) => s + Number(f(x) || 0), 0));
   const n = q.monthly_allowed ? Number(q.payments_count) : 0;
@@ -63,6 +63,7 @@ export function buildView(d: { quote: any; lines: Line[]; client: any }) {
     catchTotal: sum(G.catch_up, (l) => l.total), yeTotal, msTotal,
     yePm: n ? down(yeTotal, n) : 0, msPm: n ? down(msTotal, n) : 0,
     saNow: sum(G.sa, (l) => Number(l.deposit)),
+    R: Number(q.rolling_monthly || 0) || sum(G.rolling, (l) => l.total),
     catchHead: catchUpHeading(G.catch_up),
     yeHead: yearEndHeading(d.client.client_type, q.year_end_date),
     perMonth: (l: Line) => l.months ? r2(Number(l.total) / l.months) : Number(l.total),
@@ -184,20 +185,32 @@ export async function buildQuotePdf(d: { practice: any; quote: any; lines: Line[
     G.monthly.forEach((l) => row(lineLabel(l), gbp(V.perMonth(l)) + ' a month', { was: was(l, true) }));
     row('Total monthly services', gbp(n ? V.msPm : (months ? r2(V.msTotal / months) : V.msTotal)) + ' a month', { hl: true });
   }
+  const RM = V.R;
+  if (G.rolling.length) {
+    heading(`${++k}. Monthly plan – until you cancel`);
+    sub('Charged each month by card; not tied to your year end');
+    G.rolling.forEach((l) => row(lineLabel(l), gbp(Number(l.total)) + ' a month', { was: was(l) }));
+    row('Total monthly plan', gbp(RM) + ' a month', { hl: true });
+  }
   const ongoing = Number(q.ongoing_total);
   if (ongoing > 0 && n) {
     heading(`${++k}. Your monthly fee`);
     if (G.year_end.length) row(`Year-end services (spread over ${n} months)`, gbp(V.yePm));
     if (G.monthly.length) row('Monthly services', gbp(V.msPm));
-    bar('Total monthly fee', gbp(Number(q.monthly_amount)) + ' a month', `${n} payments, ${fd(q.first_payment_date)} to ${fd(q.last_payment_date)}`);
+    if (RM) row('Monthly plan (until you cancel)', gbp(RM));
+    bar('Total monthly fee', gbp(r2(Number(q.monthly_amount) + RM)) + ' a month', `${n} payments, ${fd(q.first_payment_date)} to ${fd(q.last_payment_date)}${RM ? `; then ${gbp(RM)} a month until you cancel` : ''}`);
   } else if (ongoing > 0) {
     heading(`${++k}. Your fee for ongoing services`);
     bar('Ongoing services (one payment)', gbp(ongoing));
+    if (RM) bar('Monthly plan', gbp(RM) + ' a month', 'until you cancel');
+  } else if (RM) {
+    heading(`${++k}. Your monthly fee`);
+    bar('Total monthly fee', gbp(RM) + ' a month', 'until you cancel');
   }
   if (V.catchTotal) bar('One-off catch-up fee', gbp(V.catchTotal));
   if (G.sa.length) bar('Self Assessment – due when you accept', gbp(V.saNow), `${gbp(Number(q.balance_later))} balance before we submit your return`, NAVY);
   if (Number(q.discount_total)) { y -= 4; text(`These prices include a discount of ${gbp(Number(q.discount_total))}${q.discount_reason ? ' (' + q.discount_reason + ')' : ''}, which applies until ${fd(q.year_end_date) || 'your year end'}.`, { size: 8.5, color: GREY }); }
-  if (ongoing > 0 && n) { y -= 4; text(`Prefer to pay the year in full? ${gbp(Number(q.one_off_due_now) + ongoing)} in one payment instead of the monthly fee — you choose when you accept.`, { size: 8.5, color: GREY }); }
+  if (ongoing > 0 && n) { y -= 4; text(`Prefer to pay the year in full? ${gbp(Number(q.one_off_due_now) + ongoing + RM)} in one payment instead of the monthly fee${RM ? ' (your monthly plan then continues monthly)' : ''} — you choose when you accept.`, { size: 8.5, color: GREY }); }
 
   if (q.message_to_client?.trim()) { heading('Key information'); text(q.message_to_client.trim()); }
   heading('Notes');
@@ -205,6 +218,7 @@ export async function buildQuotePdf(d: { practice: any; quote: any; lines: Line[
     `${p.name || 'Accounted4Tax Ltd'} is not VAT registered, so no VAT is added to these prices.`,
     'If the work needed changes (for example more employees or transactions, or extra services), we will tell you the cost before doing any extra work.',
     ongoing > 0 && n ? 'The monthly fee is collected automatically each month by card through Stripe and stops after the last payment.' : '',
+    RM ? `Your monthly plan (${gbp(RM)} a month) is collected by card through Stripe each month and continues until you cancel, as set out in our engagement letter.` : '',
     Number(q.balance_later) ? 'The Self Assessment balance is taken from the same card before we submit your return to HMRC.' : '',
     `${q.expires_at ? `This quote is valid until ${fd(q.expires_at)}. ` : ''}Click "Accept this quote" to read and sign our engagement letter and pay securely online.`,
   ].filter(Boolean);

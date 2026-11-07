@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=8">
+  <link rel="stylesheet" href="assets/css/app.css?v=9">
 </head>
 <body>
   <header class="topbar">
@@ -89,6 +89,7 @@
           <option value="one_off">A one-off fee</option>
         </select>
         <p class="hint" id="period-hint"></p>
+        <label class="inline-check" id="rolling-wrap" style="margin-top:6px"><input type="checkbox" id="f-rolling"> Runs until the client cancels (not tied to the year end, e.g. MTD plans)</label>
       </div>
 
       <div class="field">
@@ -201,9 +202,9 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=8"></script>
-  <script src="assets/js/app.js?v=8"></script>
-  <script src="assets/js/pricing.js?v=8"></script>
+  <script src="assets/js/config.js?v=9"></script>
+  <script src="assets/js/app.js?v=9"></script>
+  <script src="assets/js/pricing.js?v=9"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -317,6 +318,7 @@
       $('f-rate').value = editing.per_unit_rate ?? '';
       $('f-incl').value = editing.included_units || '';
       $('f-paystruct').value = editing.payment_structure || 'standard';
+      $('f-rolling').checked = !!editing.runs_until_cancelled;
       $('f-deposit').value = editing.deposit_amount ?? '';
       $('f-size').value = editing.unit_size && Number(editing.unit_size) !== 1 ? Number(editing.unit_size) : '';
       $('f-ctype').value = editing.client_type;
@@ -358,6 +360,7 @@
     };
     $('f-period').onchange = () => { editing.price_period = $('f-period').value; syncForm(); };
     $('f-paystruct').onchange = () => syncForm();
+    $('f-rolling').onchange = () => syncForm();
 
     function syncForm() {
       pick('kind', editing.service_kind);
@@ -379,10 +382,11 @@
       // One-off services are always a one-off fee
       $('f-period').querySelectorAll('option').forEach(o => o.disabled = editing.service_kind === 'catch_up' && o.value !== 'one_off');
       $('period-hint').textContent = editing.service_kind === 'ongoing'
-        ? (editing.price_period === 'monthly' ? 'On quotes the yearly fee = monthly price × 12, then split over the payments left until the client’s year end.'
+        ? (editing.price_period === 'monthly' ? ($('f-rolling').checked ? 'Charged every month until the client cancels.' : 'Charged each month until the client’s year end.')
           : editing.price_period === 'annual' ? 'On quotes this yearly fee is split over the payments left until the client’s year end.'
           : 'Tip: ongoing services are usually priced per month or per year.')
         : 'Paid once, in full.';
+      $('rolling-wrap').style.display = editing.service_kind === 'ongoing' && editing.price_period === 'monthly' ? '' : 'none';
       $('calc-qty').style.display = fixed ? 'none' : '';
       $('calc-label').textContent = fixed ? 'Price check' : `Price check: enter ${$('f-unit').value || 'a quantity'}`;
       renderBands();
@@ -487,6 +491,7 @@
         unit_label: s.pricing_type === 'fixed' ? null : s.unit_label.trim(),
         unit_size: s.pricing_type === 'income_based' ? s.unit_size : 1,
         payment_structure: s.payment_structure,
+        runs_until_cancelled: editing.service_kind === 'ongoing' && s.price_period === 'monthly' && $('f-rolling').checked,
         deposit_amount: s.payment_structure === 'deposit_balance' ? (s.deposit_amount || 0) : null,
         included_units: s.pricing_type !== 'fixed' && s.pricing_type !== 'income_based' && !s.use_bands ? Math.max(0, Math.floor(s.included_units || 0)) : 0,
         billing_type: s.price_period === 'one_off' ? 'one_off' : s.price_period,

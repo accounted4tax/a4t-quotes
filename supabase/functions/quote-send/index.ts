@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       name: c.client_type === 'ltd' ? c.company_name : (c.trading_name || c.full_name) },
     lines: lines.map((l: any) => ({ description: l.description, about: about[l.service_id] || null, period_label: l.period_label, quantity: l.quantity, unit_label: l.unit_label,
       unit_price: l.unit_price, is_earlier_year: l.is_earlier_year, pricing_type: l.pricing_type, months: l.months, price_period: l.price_period, kind: l.charge_kind,
-      gross: Number(l.gross_amount), discount: Number(l.discount_amount), total: Number(l.line_total), deposit: l.deposit_amount, balance: l.balance_amount })),
+      gross: Number(l.gross_amount), discount: Number(l.discount_amount), total: Number(l.line_total), deposit: l.deposit_amount, balance: l.balance_amount, rolling: !!l.runs_until_cancelled })),
   };
   const who = c.client_type === 'ltd' ? c.company_name : (c.trading_name || c.full_name);
   const fileName = `Quote ${q.quote_number}${who ? ' – ' + who : ''}.pdf`.replace(/[\/\\:*?"<>|]/g, ' ');

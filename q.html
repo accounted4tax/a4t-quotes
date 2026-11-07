@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=8">
+  <link rel="stylesheet" href="assets/css/app.css?v=9">
   <style>
     body { background: #E9ECF2; }
     .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
@@ -73,7 +73,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=8"></script>
+  <script src="assets/js/config.js?v=9"></script>
   <script>
   (async function () {
     const cfg = window.A4T_CONFIG;
@@ -115,8 +115,8 @@
     if (q.status === 'declined') return state('Quote declined', `Quote ${esc(q.quote_number)} was declined. If you have changed your mind, please contact us.`);
 
     // ---------- group the lines like the printed quote ----------
-    const grp = (l) => l.kind === 'deposit_balance' ? 'sa' : l.kind === 'one_off' ? 'catch_up' : (l.price_period === 'monthly' ? 'monthly' : 'year_end');
-    const G = { catch_up: [], sa: [], year_end: [], monthly: [] };
+    const grp = (l) => l.kind === 'deposit_balance' ? 'sa' : l.kind === 'one_off' ? 'catch_up' : l.rolling ? 'rolling' : (l.price_period === 'monthly' ? 'monthly' : 'year_end');
+    const G = { catch_up: [], sa: [], year_end: [], monthly: [], rolling: [] };
     L.forEach(l => G[grp(l)].push(l));
     const sum = (arr, f) => r2(arr.reduce((a, x) => a + Number(f(x) || 0), 0));
     const perMonth = (l) => l.months ? r2(Number(l.total) / l.months) : Number(l.total);
@@ -196,15 +196,29 @@
         ${tot('Total monthly services', money(n ? msPm : (months ? r2(msTotal / months) : msTotal)) + ' a month')}</section>`;
     }
 
+    // Monthly plans that run until the client cancels (e.g. MTD plans)
+    const R = Number(q.rolling_monthly || 0) || sum(G.rolling, l => l.total);
+    if (G.rolling.length) {
+      html += `<section class="sec"><h2>${++k}. Monthly plan – until you cancel</h2>
+        <p class="sub">Charged each month by card; not tied to your year end</p>
+        ${G.rolling.map(l => row(l, l.total, l.gross, ' a month')).join('')}
+        ${tot('Total monthly plan', money(R) + ' a month')}</section>`;
+    }
+
     const ongoing = Number(q.ongoing_total);
     if (ongoing > 0 && n) {
       html += `<section class="sec"><h2>${++k}. Your monthly fee</h2>
         ${G.year_end.length ? `<div class="row"><div class="d">Year-end services (spread over ${n} months)</div><div class="a">${money(yePm)}</div></div>` : ''}
         ${G.monthly.length ? `<div class="row"><div class="d">Monthly services</div><div class="a">${money(msPm)}</div></div>` : ''}
-        <div class="band"><div>Total monthly fee<small>${n} payments, ${esc(fd(q.first_payment_date))} to ${esc(fd(q.last_payment_date))}</small></div><div class="a">${money(q.monthly_amount)} a month</div></div>`;
+        ${R ? `<div class="row"><div class="d">Monthly plan (until you cancel)</div><div class="a">${money(R)}</div></div>` : ''}
+        <div class="band"><div>Total monthly fee<small>${n} payments, ${esc(fd(q.first_payment_date))} to ${esc(fd(q.last_payment_date))}${R ? `; then ${money(R)} a month until you cancel` : ''}</small></div><div class="a">${money(r2(Number(q.monthly_amount) + R))} a month</div></div>`;
     } else if (ongoing > 0) {
       html += `<section class="sec"><h2>${++k}. Your fee for ongoing services</h2>
-        <div class="band"><div>Ongoing services (one payment)</div><div class="a">${money(ongoing)}</div></div>`;
+        <div class="band"><div>Ongoing services (one payment)</div><div class="a">${money(ongoing)}</div></div>
+        ${R ? `<div class="band"><div>Monthly plan<small>until you cancel</small></div><div class="a">${money(R)} a month</div></div>` : ''}`;
+    } else if (R) {
+      html += `<section class="sec"><h2>${++k}. Your monthly fee</h2>
+        <div class="band"><div>Total monthly fee<small>until you cancel</small></div><div class="a">${money(R)} a month</div></div>`;
     } else html += `<section class="sec">`;
     if (catchTotal) html += `<div class="band">${'<div>One-off catch-up fee</div>'}<div class="a">${money(catchTotal)}</div></div>`;
     if (G.sa.length) html += `<div class="band alt"><div>Self Assessment – due when you accept<small>${money(q.balance_later)} balance before we submit your return</small></div><div class="a">${money(sum(G.sa, l => l.deposit))}</div></div>`;
@@ -217,9 +231,9 @@
       const restN = n - 1;
       html += `<section class="sec"><h2>How would you like to pay?</h2>
         <div class="choice" id="choice">
-          <button type="button" class="opt" data-v="monthly"><span class="radio"></span><span><b>Pay monthly</b><span class="big">${money(nowOneOff + Number(q.monthly_amount))} today</span>
-            <small>then ${restN} monthly payment${restN === 1 ? '' : 's'} of ${money(q.monthly_amount)}. Payments stop automatically after ${esc(fd(q.last_payment_date))}.</small></span></button>
-          <button type="button" class="opt" data-v="one_off"><span class="radio"></span><span><b>Pay the year in full</b><span class="big">${money(nowOneOff + ongoing)} today</span><small>One card payment, nothing more to pay${Number(q.balance_later) ? ' apart from the Self Assessment balance' : ''}.</small></span></button>
+          <button type="button" class="opt" data-v="monthly"><span class="radio"></span><span><b>Pay monthly</b><span class="big">${money(nowOneOff + Number(q.monthly_amount) + R)} today</span>
+            <small>then ${restN} monthly payment${restN === 1 ? '' : 's'} of ${money(r2(Number(q.monthly_amount) + R))}${R ? `, the last on ${esc(fd(q.last_payment_date))}; then ${money(R)} a month for your monthly plan until you cancel` : `. Payments stop automatically after ${esc(fd(q.last_payment_date))}`}.</small></span></button>
+          <button type="button" class="opt" data-v="one_off"><span class="radio"></span><span><b>Pay the year in full</b><span class="big">${money(nowOneOff + ongoing + R)} today</span><small>${R ? `Year-end and monthly services paid in one go; your monthly plan continues at ${money(R)} a month until you cancel` : 'One card payment, nothing more to pay'}${Number(q.balance_later) ? ' (plus the Self Assessment balance)' : ''}.</small></span></button>
         </div></section>`;
     }
 
@@ -230,6 +244,7 @@
       'If the work needed changes (for example more employees or transactions, or extra services), we will tell you the cost before doing any extra work.',
     ];
     if (ongoing > 0 && n) notes.push('The monthly fee is collected automatically each month by card through Stripe and stops after the last payment.');
+    if (R) notes.push(`Your monthly plan (${money(R)} a month) is collected by card through Stripe each month and continues until you cancel, as set out in our engagement letter.`);
     if (Number(q.balance_later)) notes.push('The Self Assessment balance is taken from the same card before we submit your return to HMRC.');
     notes.push(`${q.expires_at ? `This quote is valid until ${esc(fd(q.expires_at))}. ` : ''}Click “Accept this quote” to read and sign our engagement letter and pay securely online.`);
     html += `<section class="sec"><h2>Notes</h2><ul class="notes">${notes.map(x => `<li>${x}</li>`).join('')}</ul></section>`;

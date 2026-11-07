@@ -10,6 +10,9 @@
 //     * monthly (monthly price, e.g. payroll): charged per month, for every payment left.
 //   Monthly fee = year-end total / payments  +  monthly services per month (each rounded down).
 //   Monthly-priced lines marked "earlier year" are catch-up: months entered x monthly price, paid once.
+// - Plans that run until cancelled (service.runs_until_cancelled, e.g. MTD plans): charged every month
+//   with no end date. Not part of the year-end schedule or "pay in full"; the first month is paid on
+//   acceptance and then monthly until the client cancels (totals.rolling_monthly).
 // - Payments are on the same day each month from the start date; the last one is on or before the year end.
 // - Late start (payments left <= threshold, default 2): monthly is not offered by default; the
 //   ongoing total is paid in one go, unless Eduard sets a number of instalments for this quote.
@@ -84,12 +87,14 @@
       else kind = 'ongoing';
 
       const monthly = s.price_period === 'monthly';
-      // ongoing monthly service: one month per payment left; catch-up: months entered
-      const months = !monthly ? null : (kind === 'ongoing' ? Math.max(1, natural.length) : Math.max(1, Math.min(60, Number(ln.months || 12))));
+      const rolling = kind === 'ongoing' && monthly && !!s.runs_until_cancelled;
+      // rolling plan: priced per month; ongoing monthly service: one month per payment left; catch-up: months entered
+      const months = !monthly ? null : rolling ? 1 : (kind === 'ongoing' ? Math.max(1, natural.length) : Math.max(1, Math.min(60, Number(ln.months || 12))));
       const gross = r2(monthly ? unit * months : unit);
-      if (monthly) detail += `${detail ? ' · ' : ''}${months} month${months === 1 ? '' : 's'} × £${unit.toFixed(2)}`;
+      if (monthly && !rolling) detail += `${detail ? ' · ' : ''}${months} month${months === 1 ? '' : 's'} × £${unit.toFixed(2)}`;
+      if (rolling) detail += `${detail ? ' · ' : ''}a month, until cancelled`;
       // which section of the quote it shows in
-      const group = kind === 'deposit_balance' ? 'sa' : kind === 'one_off' ? 'catch_up' : (monthly ? 'monthly' : 'year_end');
+      const group = kind === 'deposit_balance' ? 'sa' : kind === 'one_off' ? 'catch_up' : rolling ? 'rolling' : (monthly ? 'monthly' : 'year_end');
 
       let lineDisc = 0;
       const dv = Number(ln.discount_value || 0);
@@ -97,7 +102,7 @@
       else if (ln.discount_type === 'fixed') lineDisc = r2(Math.min(gross, Math.max(0, dv)));
 
 
-      return { ...ln, unit_price: unit, months, group, gross, line_discount: lineDisc, after_line: r2(gross - lineDisc), kind, detail };
+      return { ...ln, unit_price: unit, months, group, rolling, gross, line_discount: lineDisc, after_line: r2(gross - lineDisc), kind, detail };
     });
 
     // 2. Whole-quote discount
@@ -132,7 +137,8 @@
       one_off_total: sum(x => x.kind === 'one_off' ? x.net : 0),
       deposits_now: sum(x => x.kind === 'deposit_balance' ? x.deposit : 0),
       balance_later: sum(x => x.kind === 'deposit_balance' ? x.balance : 0),
-      ongoing_total: sum(x => x.kind === 'ongoing' ? x.net : 0),
+      ongoing_total: sum(x => x.kind === 'ongoing' && !x.rolling ? x.net : 0),
+      rolling_monthly: sum(x => x.rolling ? x.net : 0),
       year_end_total: sum(x => x.group === 'year_end' ? x.net : 0),
       monthly_services_total: sum(x => x.group === 'monthly' ? x.net : 0),
     };
@@ -171,11 +177,13 @@
     }
 
     // 5. What the client pays under each option
+    // Plans that run until cancelled: first month on acceptance under either option, then monthly
+    const R = totals.rolling_monthly;
     const options = {
-      one_off: { due_now: r2(totals.one_off_due_now + totals.ongoing_total), later_monthly: 0, balance_later: totals.balance_later },
+      one_off: { due_now: r2(totals.one_off_due_now + totals.ongoing_total + R), later_monthly: R, balance_later: totals.balance_later },
       monthly: sched.monthly_allowed ? {
-        due_now: r2(totals.one_off_due_now + sched.monthly_amount),
-        then: `${sched.payments_count - 1} more monthly payment${sched.payments_count - 1 === 1 ? '' : 's'} of £${sched.monthly_amount.toFixed(2)}`,
+        due_now: r2(totals.one_off_due_now + sched.monthly_amount + R),
+        then: `${sched.payments_count - 1} more monthly payment${sched.payments_count - 1 === 1 ? '' : 's'} of £${r2(sched.monthly_amount + R).toFixed(2)}` + (R ? `, then £${R.toFixed(2)} a month until cancelled` : ''),
         balance_later: totals.balance_later,
       } : null,
     };

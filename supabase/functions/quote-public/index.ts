@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   }
 
   const [{ data: lines }, { data: st }] = await Promise.all([
-    db.from('qs_quote_lines').select('description,period_label,quantity,unit_label,unit_price,months,is_earlier_year,price_period,charge_kind,gross_amount,discount_amount,line_total,deposit_amount,balance_amount,pricing_type,service_id,sort_order').eq('quote_id', q.id).order('sort_order'),
+    db.from('qs_quote_lines').select('description,period_label,quantity,unit_label,unit_price,months,is_earlier_year,price_period,charge_kind,gross_amount,discount_amount,line_total,deposit_amount,balance_amount,pricing_type,service_id,sort_order,runs_until_cancelled').eq('quote_id', q.id).order('sort_order'),
     db.from('qs_settings').select('key,value').in('key', ['practice', 'stripe_mode']),
   ]);
   const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       start_date: q.start_date, year_end_date: q.year_end_date, tax_year: q.tax_year,
       subtotal: q.subtotal, discount_total: q.discount_total, discount_reason: q.discount_reason, total: q.total,
       one_off_total: q.one_off_total, one_off_due_now: q.one_off_due_now, ongoing_total: q.ongoing_total, balance_later: q.balance_later,
-      monthly_allowed: q.monthly_allowed, monthly_amount: q.monthly_amount, payments_count: q.payments_count,
+      monthly_allowed: q.monthly_allowed, monthly_amount: q.monthly_amount, rolling_monthly: q.rolling_monthly, payments_count: q.payments_count,
       first_payment_date: q.first_payment_date, last_payment_date: q.last_payment_date, late_start: q.late_start,
       message_to_client: q.message_to_client, payment_option: q.payment_option,
     },
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     lines: (lines || []).map((l: any) => ({
       description: l.description, about: descr[l.service_id] || null, period_label: l.period_label,
       quantity: l.quantity, unit_label: l.unit_label, unit_price: l.unit_price, is_earlier_year: l.is_earlier_year, pricing_type: l.pricing_type, months: l.months, price_period: l.price_period,
-      kind: l.charge_kind, gross: l.gross_amount, discount: l.discount_amount, total: l.line_total, deposit: l.deposit_amount, balance: l.balance_amount,
+      kind: l.charge_kind, gross: l.gross_amount, discount: l.discount_amount, total: l.line_total, deposit: l.deposit_amount, balance: l.balance_amount, rolling: !!l.runs_until_cancelled,
     })),
   });
 });
