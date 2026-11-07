@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=7">
+  <link rel="stylesheet" href="assets/css/app.css?v=8">
 </head>
 <body>
   <header class="topbar">
@@ -59,8 +59,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=7"></script>
-  <script src="assets/js/app.js?v=7"></script>
+  <script src="assets/js/config.js?v=8"></script>
+  <script src="assets/js/app.js?v=8"></script>
   <script>
     (async function () {
       const session = await A4T.requireAdmin();
@@ -101,7 +101,8 @@
 
       checks.push(`<li id="ch-row"><span class="dot todo" id="ch-dot"></span><span style="flex:1"><span id="ch-text">Companies House lookup</span></span><button type="button" class="btn btn-ghost btn-sm" id="ch-test">Test</button></li>`);
       addCheck('ok', 'Services & pricing catalogue (Phase 3)');
-      addCheck('todo', 'Quote builder & Brevo emails (Phase 4)');
+      checks.push(`<li><span class="dot todo" id="em-dot"></span><span style="flex:1" id="em-text">Email sending (Brevo)</span><button type="button" class="btn btn-ghost btn-sm" id="em-test">Send test email</button></li>`);
+      addCheck('todo', 'Quote builder (Phase 4)');
       document.getElementById('checks').innerHTML = checks.join('');
 
       // ---------- Company lookup (type-ahead) ----------
@@ -183,6 +184,21 @@
           } catch (e) { out.innerHTML = `<p class="warn" style="margin-top:12px">${esc(e.message)}</p>`; }
         }
       })();
+
+      // Brevo test email
+      document.getElementById('em-test').onclick = async () => {
+        const btn = document.getElementById('em-test'), dot = document.getElementById('em-dot'), txt = document.getElementById('em-text');
+        btn.disabled = true; btn.textContent = 'Sending…';
+        let err = null, data = null;
+        try {
+          const res = await A4T.sb.functions.invoke('send-email', { body: { test: true } });
+          data = res.data;
+          if (res.error) { try { const b = await res.error.context.json(); err = b.error ? b.error.message : res.error.message; } catch (_) { err = res.error.message; } }
+        } catch (e) { err = e.message; }
+        if (data && data.sent) { dot.className = 'dot ok'; txt.textContent = `Test email sent to ${data.to}. Check it arrived in your inbox, not spam.`; }
+        else { dot.className = 'dot bad'; txt.textContent = 'Email failed: ' + (err || 'unknown error'); }
+        btn.disabled = false; btn.textContent = 'Send again';
+      };
 
       // Companies House lookup self-test (uses Accounted4Tax Ltd, 16438537)
       document.getElementById('ch-test').onclick = async () => {
