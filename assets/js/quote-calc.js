@@ -5,7 +5,11 @@
 // - One-off: catch-up services, earlier years, one-off fees. Paid in full on acceptance.
 // - Deposit + balance (e.g. Self Assessment): deposit on acceptance, balance before submission.
 // - Ongoing (current year): client chooses pay in full now OR monthly until the year end.
-//   Monthly amount = ongoing total / number of payments left before the year end.
+//   Two kinds of ongoing service:
+//     * year-end (annual price, e.g. accounts + CT600): the fee is spread over the payments left;
+//     * monthly (monthly price, e.g. payroll): charged per month, for every payment left.
+//   Monthly fee = year-end total / payments  +  monthly services per month (each rounded down).
+//   Monthly-priced lines marked "earlier year" are catch-up: months entered x monthly price, paid once.
 // - Payments are on the same day each month from the start date; the last one is on or before the year end.
 // - Late start (payments left <= threshold, default 2): monthly is not offered by default; the
 //   ongoing total is paid in one go, unless Eduard sets a number of instalments for this quote.
@@ -57,6 +61,11 @@
     const errors = [];
     const threshold = Number(settings.late_start_threshold_months ?? 2);
 
+    // 0. Payments left before the year end (drives months for ongoing monthly services)
+    const start = quote.start_date || todayISO();
+    const ye = quote.year_end_date;
+    const natural = (ye && ye >= start) ? paymentDates(start, ye) : [];
+
     // 1. Each line before the whole-quote discount
     const L = lines.map((ln, i) => {
       const s = ln.service || {};
@@ -68,22 +77,27 @@
         if (res.price === null) errors.push(`${s.name || 'Line ' + (i + 1)}: ${res.error}`);
         unit = res.price === null ? 0 : res.price; detail = res.detail || '';
       }
-      const monthly = s.price_period === 'monthly';
-      const months = monthly ? Math.max(1, Math.min(24, Number(ln.months || 12))) : null;
-      const gross = r2(monthly ? unit * months : unit);
-      if (monthly) detail += `${detail ? ' · ' : ''}${months} month${months === 1 ? '' : 's'} × £${unit.toFixed(2)}`;
-
-      let lineDisc = 0;
-      const dv = Number(ln.discount_value || 0);
-      if (ln.discount_type === 'percent') lineDisc = r2(gross * Math.min(100, Math.max(0, dv)) / 100);
-      else if (ln.discount_type === 'fixed') lineDisc = r2(Math.min(gross, Math.max(0, dv)));
 
       let kind;
       if (s.payment_structure === 'deposit_balance') kind = 'deposit_balance';
       else if (ln.is_earlier_year || s.service_kind === 'catch_up' || s.price_period === 'one_off') kind = 'one_off';
       else kind = 'ongoing';
 
-      return { ...ln, unit_price: unit, months, gross, line_discount: lineDisc, after_line: r2(gross - lineDisc), kind, detail };
+      const monthly = s.price_period === 'monthly';
+      // ongoing monthly service: one month per payment left; catch-up: months entered
+      const months = !monthly ? null : (kind === 'ongoing' ? Math.max(1, natural.length) : Math.max(1, Math.min(60, Number(ln.months || 12))));
+      const gross = r2(monthly ? unit * months : unit);
+      if (monthly) detail += `${detail ? ' · ' : ''}${months} month${months === 1 ? '' : 's'} × £${unit.toFixed(2)}`;
+      // which section of the quote it shows in
+      const group = kind === 'deposit_balance' ? 'sa' : kind === 'one_off' ? 'catch_up' : (monthly ? 'monthly' : 'year_end');
+
+      let lineDisc = 0;
+      const dv = Number(ln.discount_value || 0);
+      if (ln.discount_type === 'percent') lineDisc = r2(gross * Math.min(100, Math.max(0, dv)) / 100);
+      else if (ln.discount_type === 'fixed') lineDisc = r2(Math.min(gross, Math.max(0, dv)));
+
+
+      return { ...ln, unit_price: unit, months, group, gross, line_discount: lineDisc, after_line: r2(gross - lineDisc), kind, detail };
     });
 
     // 2. Whole-quote discount
@@ -119,19 +133,18 @@
       deposits_now: sum(x => x.kind === 'deposit_balance' ? x.deposit : 0),
       balance_later: sum(x => x.kind === 'deposit_balance' ? x.balance : 0),
       ongoing_total: sum(x => x.kind === 'ongoing' ? x.net : 0),
+      year_end_total: sum(x => x.group === 'year_end' ? x.net : 0),
+      monthly_services_total: sum(x => x.group === 'monthly' ? x.net : 0),
     };
     totals.one_off_due_now = r2(totals.one_off_total + totals.deposits_now);
 
     // 4. Payment schedule for ongoing services
-    const start = quote.start_date || todayISO();
-    const ye = quote.year_end_date;
     const sched = { start_date: start, year_end_date: ye, payments_left: 0, late_start: false, monthly_allowed: false,
-      payments_count: null, monthly_amount: null, monthly_total: null, dates: [], first_payment_date: null, last_payment_date: null };
+      payments_count: null, monthly_amount: null, monthly_total: null, year_end_per_month: null, monthly_services_per_month: null, dates: [], first_payment_date: null, last_payment_date: null };
     if (totals.ongoing_total > 0) {
       if (!ye) errors.push('Set the year end date.');
       else if (ye < start) errors.push('The year end is before the start date.');
       else {
-        const natural = paymentDates(start, ye);
         sched.payments_left = natural.length;
         sched.late_start = natural.length <= threshold;
         let n = natural.length, dates = natural;
@@ -145,7 +158,10 @@
           sched.monthly_allowed = true;
           sched.payments_count = n;
           // Round DOWN to the penny so the client never pays more than the quoted total
-          sched.monthly_amount = Math.floor(r2(totals.ongoing_total * 100 / n)) / 100;
+          const down = (v) => Math.floor(r2(v * 100 / n)) / 100;
+          sched.year_end_per_month = down(totals.year_end_total);
+          sched.monthly_services_per_month = down(totals.monthly_services_total);
+          sched.monthly_amount = r2(sched.year_end_per_month + sched.monthly_services_per_month);
           sched.monthly_total = r2(sched.monthly_amount * n);
           sched.dates = dates;
           sched.first_payment_date = dates[0];

@@ -9,52 +9,71 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=6">
+  <link rel="stylesheet" href="assets/css/app.css?v=7">
   <style>
-    body { background: var(--bg); }
-    .cq-top { background: var(--navy); color: #fff; padding: 18px 16px 52px; }
-    .cq-top .inner, .cq-main { max-width: 680px; margin: 0 auto; }
-    .cq-brand { font: 600 1.2rem var(--font-head); }
-    .cq-brand span { color: var(--gold); }
-    .cq-top h1 { color: #fff; font-size: 1.6rem; margin: 18px 0 4px; }
-    .cq-top p { margin: 0; color: #C9CEDA; }
-    .cq-main { padding: 0 16px 40px; margin-top: -36px; }
-    .cq-card { background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px; }
-    .cq-card h2 { font-size: 1.1rem; margin-bottom: 12px; }
-    .cq-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-    .cq-item:last-child { border-bottom: 0; }
-    .cq-item b { color: var(--navy); }
-    .cq-item .meta { font-size: .85rem; color: var(--muted); margin-top: 2px; }
-    .cq-item .amt { font: 600 1.05rem var(--font-head); color: var(--navy); white-space: nowrap; text-align: right; }
-    .cq-item .amt s { display: block; font: 400 .78rem var(--font-body); color: var(--muted); }
-    .cq-row { display: flex; justify-content: space-between; padding: 6px 0; }
-    .cq-total { font: 600 1.35rem var(--font-head); color: var(--navy); border-top: 2px solid var(--navy); margin-top: 6px; padding-top: 10px; }
-    .cq-choice { display: grid; gap: 10px; }
-    .cq-opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--line); border-radius: 12px; padding: 14px; cursor: pointer; background: #fff; text-align: left; font: inherit; color: inherit; width: 100%; }
-    .cq-opt.on { border-color: var(--teal); background: #F4FAF9; }
-    .cq-opt .radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: 0 0 22px; margin-top: 2px; }
-    .cq-opt.on .radio { border: 7px solid var(--teal); }
-    .cq-opt b { color: var(--navy); display: block; font-size: 1.02rem; }
-    .cq-opt .big { font: 600 1.3rem var(--font-head); color: var(--navy); margin: 4px 0 2px; }
-    .cq-opt small { color: var(--muted); display: block; }
-    .cq-note { background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; font-size: .9rem; color: #5c4a12; margin-top: 10px; }
-    .cq-msg { background: #F7F5F0; border-left: 3px solid var(--gold); padding: 12px 14px; border-radius: 0 10px 10px 0; white-space: pre-line; }
-    .cq-foot { text-align: center; font-size: .8rem; color: var(--muted); margin-top: 18px; line-height: 1.6; }
-    .cq-state { text-align: center; padding: 30px 18px; }
+    body { background: #E9ECF2; }
+    .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
+    @media (min-width: 800px) { .doc { margin: 24px auto; min-height: 0; border-radius: 6px; overflow: hidden; } }
+    .hd { background: var(--navy); color: #fff; padding: 22px 20px; display: flex; flex-wrap: wrap; gap: 14px 24px; justify-content: space-between; align-items: flex-start; }
+    .hd .brand { font: 700 1.55rem var(--font-head); line-height: 1.1; }
+    .hd .tag { font-size: .82rem; color: #D5DAE5; margin-top: 6px; }
+    .hd .addr { font-size: .8rem; color: #D5DAE5; line-height: 1.55; }
+    @media (min-width: 560px) { .hd .addr { text-align: right; } }
+    .hd .addr a { color: #fff; text-decoration: none; }
+    .body { padding: 22px 20px 28px; }
+    .title { font: 700 1.9rem var(--font-head); color: var(--navy); margin: 0 0 14px; letter-spacing: .02em; }
+    .meta { background: #F1F3F7; padding: 14px 16px; display: grid; gap: 12px; font-size: .9rem; color: var(--navy); }
+    @media (min-width: 560px) { .meta { grid-template-columns: 1fr 1fr; } }
+    .meta b { font-weight: 700; }
+    .meta div div { line-height: 1.5; }
+    .sec { margin-top: 22px; }
+    .sec h2 { font: 700 1.02rem var(--font-body); color: var(--navy); margin: 0 0 4px; }
+    .sec .sub { font-size: .82rem; color: var(--muted); margin: -2px 0 6px; }
+    .row { display: flex; justify-content: space-between; gap: 14px; padding: 9px 10px 9px 6px; border-bottom: 1px solid #E3E6EC; font-size: .9rem; color: #2a3346; }
+    .row .d { flex: 1; min-width: 0; }
+    .row .d small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+    .row .a { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+    .row .a s { display: block; color: var(--muted); font-size: .76rem; }
+    .row.tot { background: #F1F3F7; font-weight: 600; color: var(--navy); border-bottom: 0; }
+    .row.tot + .row.tot { border-top: 1px solid #E3E6EC; }
+    .band { background: var(--teal); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 14px; margin-top: 10px; font-weight: 700; }
+    .band .a { font: 700 1.25rem var(--font-body); white-space: nowrap; }
+    .band.alt { background: var(--navy); }
+    .band small { display: block; font-weight: 400; font-size: .78rem; opacity: .85; margin-top: 2px; }
+    .choice { display: grid; gap: 10px; margin-top: 10px; }
+    @media (min-width: 560px) { .choice { grid-template-columns: 1fr 1fr; } }
+    .opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid #DCE0E8; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; text-align: left; font: inherit; color: inherit; width: 100%; }
+    .opt.on { border-color: var(--teal); background: #F4FAF9; }
+    .opt .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C7CDD8; flex: 0 0 20px; margin-top: 2px; }
+    .opt.on .radio { border: 6px solid var(--teal); }
+    .opt b { color: var(--navy); display: block; }
+    .opt .big { font: 700 1.15rem var(--font-body); color: var(--navy); margin: 3px 0 2px; }
+    .opt small { color: var(--muted); display: block; font-size: .8rem; }
+    .msg { white-space: pre-line; font-size: .92rem; color: #2a3346; }
+    .notes { margin: 6px 0 0; padding-left: 18px; font-size: .86rem; color: #2a3346; }
+    .notes li { margin: 5px 0; }
+    .accept { text-align: center; margin-top: 22px; }
+    .accept .btn { min-width: 240px; }
+    .accept p { font-size: .8rem; color: var(--muted); margin: 8px 0 0; }
+    .ft { border-top: 1px solid #E3E6EC; padding: 14px 20px 20px; font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.6; }
+    .state { text-align: center; padding: 30px 6px; }
     .preview-bar { background: var(--gold); color: var(--navy); text-align: center; font-weight: 600; font-size: .85rem; padding: 8px 12px; }
+    @media print { body { background: #fff; } .doc { box-shadow: none; margin: 0; } .preview-bar, .choice, .accept { display: none; } .band, .hd, .row.tot, .meta { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
 <body>
   <div id="pv"></div>
-  <header class="cq-top"><div class="inner">
-    <div class="cq-brand">Accounted4Tax <span>·</span> Quote</div>
-    <h1 id="h1">Your quote</h1>
-    <p id="h1sub">Loading…</p>
-  </div></header>
-  <main class="cq-main" id="main"><div class="cq-card"><p>Loading your quote…</p></div></main>
+  <div class="doc">
+    <header class="hd">
+      <div><div class="brand">Accounted4Tax</div><div class="tag" id="tag">Accountants for sole traders, contractors and limited companies</div></div>
+      <div class="addr" id="addr">Accounted4Tax Ltd<br>128 City Road, London EC1V 2NX<br>info@accounted4tax.co.uk</div>
+    </header>
+    <main class="body" id="main"><p>Loading your quote…</p></main>
+    <footer class="ft" id="ft">Accounted4Tax Ltd · Registered in England and Wales · Not VAT registered</footer>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=6"></script>
+  <script src="assets/js/config.js?v=7"></script>
   <script>
   (async function () {
     const cfg = window.A4T_CONFIG;
@@ -62,13 +81,14 @@
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const money = (n) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(n || 0));
     const fd = (d) => d ? new Date(String(d).length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+    const down = (v, n) => Math.floor(r2(v * 100 / n)) / 100;
     const $ = (id) => document.getElementById(id);
     const p = new URLSearchParams(location.search);
     const token = p.get('t'), preview = p.get('preview') === '1';
 
     function state(title, text) {
-      $('h1').textContent = title; $('h1sub').textContent = '';
-      $('main').innerHTML = `<div class="cq-card cq-state"><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a></p></div>`;
+      $('main').innerHTML = `<div class="state"><h1 class="title" style="font-size:1.4rem">${esc(title)}</h1><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a></p></div>`;
     }
     if (!token) return state('Quote not found', 'This link is incomplete. Please use the link in your email.');
 
@@ -83,75 +103,129 @@
       d = res.data;
     } catch (e) { return state('Something went wrong', 'Please try again in a moment.'); }
 
-    const q = d.quote, L = d.lines;
+    const q = d.quote, L = d.lines, pr = d.practice || {}, c = d.client;
+    const phone = pr.phone || '', email = pr.email || 'info@accounted4tax.co.uk';
     if (d.preview) $('pv').innerHTML = '<div class="preview-bar">Preview: this is what your client sees. Opening it here does not mark it as viewed.</div>';
     document.title = `Quote ${q.quote_number} · Accounted4Tax`;
-    $('h1').textContent = `Quote for ${d.client.name}`;
-    $('h1sub').textContent = `${q.quote_number}${q.expires_at && ['sent', 'viewed'].includes(q.status) ? ' · valid until ' + fd(q.expires_at) : ''}`;
+    if (pr.tagline) $('tag').textContent = pr.tagline;
+    $('addr').innerHTML = `${esc(pr.name || 'Accounted4Tax Ltd')}<br>${esc(pr.registered_office || '')}<br><a href="mailto:${esc(email)}">${esc(email)}</a>${phone ? ` · <a href="tel:${esc(phone.replace(/\s/g, ''))}">${esc(phone)}</a>` : ''}`;
+    $('ft').textContent = `${pr.name || 'Accounted4Tax Ltd'} · Registered in England and Wales, company number ${pr.crn || ''} · Registered office ${pr.registered_office || ''} · Not VAT registered`;
 
     if (q.status === 'expired') return state('This quote has expired', `Quote ${esc(q.quote_number)} was valid until ${esc(fd(q.expires_at))}. Please contact us and we will send you an updated quote.`);
     if (q.status === 'declined') return state('Quote declined', `Quote ${esc(q.quote_number)} was declined. If you have changed your mind, please contact us.`);
 
-    const oneOff = L.filter(l => l.kind !== 'ongoing'), ongoing = L.filter(l => l.kind === 'ongoing');
-    const qtyText = (l) => {
-      const bits = [];
-      if (l.pricing_type === 'income_based' && l.quantity !== null) bits.push('Based on estimated income of ' + money(l.quantity));
-      else if (l.pricing_type !== 'fixed' && l.quantity !== null) bits.push(`${Number(l.quantity)} ${l.unit_label || ''}`.trim());
-      if (l.price_period === 'monthly' && l.months) bits.push(`${l.months} month${l.months === 1 ? '' : 's'}`);
-      return bits.join(' · ');
+    // ---------- group the lines like the printed quote ----------
+    const grp = (l) => l.kind === 'deposit_balance' ? 'sa' : l.kind === 'one_off' ? 'catch_up' : (l.price_period === 'monthly' ? 'monthly' : 'year_end');
+    const G = { catch_up: [], sa: [], year_end: [], monthly: [] };
+    L.forEach(l => G[grp(l)].push(l));
+    const sum = (arr, f) => r2(arr.reduce((a, x) => a + Number(f(x) || 0), 0));
+    const perMonth = (l) => l.months ? r2(Number(l.total) / l.months) : Number(l.total);
+
+    const label = (l) => {
+      let t = esc(l.description) + (l.is_earlier_year ? ' catch-up' : '');
+      if (l.about) t += ` – ${esc(l.about)}`;
+      const extra = [];
+      if (l.period_label) extra.push(l.period_label);
+      if (l.pricing_type === 'income_based' && l.quantity !== null) extra.push('based on estimated income of ' + money(l.quantity));
+      else if (l.pricing_type !== 'fixed' && l.quantity !== null) extra.push(`${Number(l.quantity)} ${l.unit_label || ''}`.trim());
+      if (l.price_period === 'monthly' && l.kind !== 'ongoing' && l.months) extra.push(`${l.months} × ${money(l.unit_price)}`);
+      return t + (extra.length ? ` (${esc(extra.join(', '))})` : '');
     };
-    const item = (l) => `<div class="cq-item"><div>
-        <b>${esc(l.description)}</b>
-        ${l.period_label ? `<div class="meta">${esc(l.period_label)}</div>` : ''}
-        ${l.about ? `<div class="meta">${esc(l.about)}</div>` : ''}
-        ${qtyText(l) ? `<div class="meta">${esc(qtyText(l))}</div>` : ''}
-        ${l.kind === 'deposit_balance' ? `<div class="meta"><b style="color:var(--teal)">${money(l.deposit)} now</b>, ${money(l.balance)} before we submit to HMRC</div>` : ''}
-      </div><div class="amt">${money(l.total)}${Number(l.discount) ? `<s>${money(l.gross)}</s>` : ''}</div></div>`;
+    const amt = (val, gross, suffix = '') => `<div class="a">${money(val)}${suffix}${Number(gross) > Number(val) + 0.004 ? `<s>${money(gross)}${suffix}</s>` : ''}</div>`;
+    const row = (l, val, gross, suffix, note) => `<div class="row"><div class="d">${label(l)}${note ? `<small>${note}</small>` : ''}</div>${amt(val, gross, suffix)}</div>`;
+    const tot = (t, val) => `<div class="row tot"><div class="d">${t}</div><div class="a">${val}</div></div>`;
 
-    const ye = q.year_end_date ? fd(q.year_end_date) : '';
-    let html = '';
-    if (q.message_to_client) html += `<div class="cq-card"><div class="cq-msg">${esc(q.message_to_client)}</div></div>`;
-    if (ongoing.length) html += `<div class="cq-card"><h2>Ongoing services${ye ? ' to ' + esc(ye) : ''}</h2>${ongoing.map(item).join('')}</div>`;
-    if (oneOff.length) html += `<div class="cq-card"><h2>One-off services</h2>${oneOff.map(item).join('')}</div>`;
+    const n = q.monthly_allowed ? Number(q.payments_count) : 0;
+    const ye = q.year_end_date ? fd(q.year_end_date) : 'your year end';
+    const yeTotal = sum(G.year_end, l => l.total), msTotal = sum(G.monthly, l => l.total);
+    const yePm = n ? down(yeTotal, n) : 0, msPm = n ? down(msTotal, n) : 0;
+    const catchTotal = sum(G.catch_up, l => l.total);
+    let k = 0, html = '';
 
-    html += `<div class="cq-card">
-      ${Number(q.discount_total) ? `<div class="cq-row"><span>Services</span><span>${money(q.subtotal)}</span></div>
-        <div class="cq-row" style="color:var(--teal)"><span>Discount${q.discount_reason ? ' (' + esc(q.discount_reason) + ')' : ''}</span><span>− ${money(q.discount_total)}</span></div>` : ''}
-      <div class="cq-row cq-total"><span>Total</span><span>${money(q.total)}</span></div>
-      <p class="hint" style="margin-top:6px">We are not VAT registered, so no VAT is added.${Number(q.discount_total) ? ' Discounts apply until ' + esc(ye || 'the year end') + '.' : ''}</p>
-    </div>`;
-
-    // How to pay
-    const ongoingTotal = Number(q.ongoing_total), nowOneOff = Number(q.one_off_due_now);
-    let payHtml = '<div class="cq-card"><h2>How you pay</h2>';
-    if (ongoingTotal > 0 && q.monthly_allowed) {
-      const restN = q.payments_count - 1;
-      payHtml += `<div class="cq-choice" id="choice">
-        <button type="button" class="cq-opt" data-v="one_off"><span class="radio"></span><span><b>Pay in full</b><span class="big">${money(nowOneOff + ongoingTotal)}</span><small>today, by card</small></span></button>
-        <button type="button" class="cq-opt" data-v="monthly"><span class="radio"></span><span><b>Pay monthly</b><span class="big">${money(nowOneOff + Number(q.monthly_amount))} today</span>
-          <small>then ${restN} monthly payment${restN === 1 ? '' : 's'} of ${money(q.monthly_amount)}, the last on ${esc(fd(q.last_payment_date))}. Payments stop automatically.</small></span></button>
+    // Header block
+    const preparedFor = c.client_type === 'ltd'
+      ? `${esc(c.contact)}, Director<br>${esc(c.company_name || c.name)}${c.crn ? `<br>Company number ${esc(c.crn)}` : ''}`
+      : `${esc(c.contact)}${c.trading_name ? `<br>${esc(c.trading_name)}` : ''}`;
+    html += `<h1 class="title">QUOTE</h1>
+      <div class="meta">
+        <div><b>Prepared for</b><div>${preparedFor}</div></div>
+        <div><div><b>Date:</b> ${esc(fd(q.sent_at || q.created_at))}</div><div><b>Quote reference:</b> ${esc(q.quote_number)}</div>
+          ${q.expires_at ? `<div><b>Valid until:</b> ${esc(fd(q.expires_at))}</div>` : ''}
+          ${q.year_end_date ? `<div><b>Period:</b> to ${esc(ye)}</div>` : ''}</div>
       </div>`;
-    } else {
-      payHtml += `<div class="cq-row cq-total" style="border-top:0;margin:0;padding:0"><span>Due on acceptance</span><span>${money(nowOneOff + ongoingTotal)}</span></div><p class="hint">Paid securely by card.</p>`;
+
+    if (G.catch_up.length) {
+      html += `<section class="sec"><h2>${++k}. Catch-up work (one-off)</h2>
+        ${G.catch_up.map(l => row(l, l.total, l.gross)).join('')}
+        ${tot('Total catch-up work (paid once)', money(catchTotal))}</section>`;
     }
-    if (Number(q.balance_later)) payHtml += `<div class="cq-note">Plus ${money(q.balance_later)} taken from the same card before we submit your tax return to HMRC.</div>`;
-    payHtml += '</div>';
-    html += payHtml;
+    if (G.sa.length) {
+      html += `<section class="sec"><h2>${++k}. Self Assessment</h2>
+        ${G.sa.map(l => row(l, l.total, l.gross, '', `${money(l.deposit)} when you accept, ${money(l.balance)} before we submit your return to HMRC`)).join('')}
+        ${tot('Paid when you accept', money(sum(G.sa, l => l.deposit)))}
+        ${Number(q.balance_later) ? tot('Balance before submission', money(q.balance_later)) : ''}</section>`;
+    }
+    if (G.year_end.length) {
+      html += `<section class="sec"><h2>${++k}. Year-end services</h2>
+        ${G.year_end.map(l => row(l, l.total, l.gross)).join('')}
+        ${tot('Total year-end services', money(yeTotal))}
+        ${n ? tot(`Spread over ${n} month${n === 1 ? '' : 's'}`, money(yePm) + ' a month') : ''}</section>`;
+    }
+    if (G.monthly.length) {
+      const months = G.monthly[0].months;
+      html += `<section class="sec"><h2>${++k}. Monthly services – ongoing</h2>
+        ${months ? `<p class="sub">Until ${esc(ye)}${months > 1 ? ` (${months} months)` : ''}</p>` : ''}
+        ${G.monthly.map(l => row(l, perMonth(l), l.months ? r2(Number(l.gross) / l.months) : l.gross, ' a month')).join('')}
+        ${tot('Total monthly services', money(n ? msPm : (months ? r2(msTotal / months) : msTotal)) + ' a month')}</section>`;
+    }
 
-    html += `<div class="cq-card"><h2>Next step</h2>
-      <p>You will read and accept our engagement letter, then pay securely by card through Stripe.</p>
-      <button type="button" class="btn btn-teal" id="go" disabled>Continue</button>
-      <p class="hint" style="margin-top:8px" id="go-hint">${ongoingTotal > 0 && q.monthly_allowed ? 'Choose how you would like to pay first.' : ''}</p>
-      <p class="hint">Online acceptance is being finalised. If you would like to go ahead now, reply to our email.</p></div>`;
+    const ongoing = Number(q.ongoing_total);
+    if (ongoing > 0 && n) {
+      html += `<section class="sec"><h2>${++k}. Your monthly fee</h2>
+        ${G.year_end.length ? `<div class="row"><div class="d">Year-end services (spread over ${n} months)</div><div class="a">${money(yePm)}</div></div>` : ''}
+        ${G.monthly.length ? `<div class="row"><div class="d">Monthly services</div><div class="a">${money(msPm)}</div></div>` : ''}
+        <div class="band"><div>Total monthly fee<small>${n} payments, ${esc(fd(q.first_payment_date))} to ${esc(fd(q.last_payment_date))}</small></div><div class="a">${money(q.monthly_amount)} a month</div></div>`;
+    } else if (ongoing > 0) {
+      html += `<section class="sec"><h2>${++k}. Your fee for ongoing services</h2>
+        <div class="band"><div>Ongoing services (one payment)</div><div class="a">${money(ongoing)}</div></div>`;
+    } else html += `<section class="sec">`;
+    if (catchTotal) html += `<div class="band">${'<div>One-off catch-up fee</div>'}<div class="a">${money(catchTotal)}</div></div>`;
+    if (G.sa.length) html += `<div class="band alt"><div>Self Assessment – due when you accept<small>${money(q.balance_later)} balance before we submit your return</small></div><div class="a">${money(sum(G.sa, l => l.deposit))}</div></div>`;
+    if (Number(q.discount_total)) html += `<p class="hint" style="margin-top:8px">These prices include a discount of ${money(q.discount_total)}${q.discount_reason ? ' (' + esc(q.discount_reason) + ')' : ''}, which applies until ${esc(ye)}.</p>`;
+    html += `</section>`;
 
-    html += `<div class="cq-foot">${esc(d.practice.name || 'Accounted4Tax Ltd')} · Company no. ${esc(d.practice.crn || '')}<br>Registered office: ${esc(d.practice.registered_office || '')}<br>
-      <a href="mailto:${esc(d.practice.email || 'info@accounted4tax.co.uk')}">${esc(d.practice.email || 'info@accounted4tax.co.uk')}</a></div>`;
+    // Pay in full or monthly
+    const nowOneOff = Number(q.one_off_due_now);
+    if (ongoing > 0 && n) {
+      const restN = n - 1;
+      html += `<section class="sec"><h2>How would you like to pay?</h2>
+        <div class="choice" id="choice">
+          <button type="button" class="opt" data-v="monthly"><span class="radio"></span><span><b>Pay monthly</b><span class="big">${money(nowOneOff + Number(q.monthly_amount))} today</span>
+            <small>then ${restN} monthly payment${restN === 1 ? '' : 's'} of ${money(q.monthly_amount)}. Payments stop automatically after ${esc(fd(q.last_payment_date))}.</small></span></button>
+          <button type="button" class="opt" data-v="one_off"><span class="radio"></span><span><b>Pay the year in full</b><span class="big">${money(nowOneOff + ongoing)} today</span><small>One card payment, nothing more to pay${Number(q.balance_later) ? ' apart from the Self Assessment balance' : ''}.</small></span></button>
+        </div></section>`;
+    }
+
+    if (q.message_to_client) html += `<section class="sec"><h2>Key information</h2><div class="msg">${esc(q.message_to_client)}</div></section>`;
+
+    const notes = [
+      `${esc(pr.name || 'Accounted4Tax Ltd')} is not VAT registered, so no VAT is added to these prices.`,
+      'If the work needed changes (for example more employees or transactions, or extra services), we will tell you the cost before doing any extra work.',
+    ];
+    if (ongoing > 0 && n) notes.push('The monthly fee is collected automatically each month by card through Stripe and stops after the last payment.');
+    if (Number(q.balance_later)) notes.push('The Self Assessment balance is taken from the same card before we submit your return to HMRC.');
+    notes.push(`${q.expires_at ? `This quote is valid until ${esc(fd(q.expires_at))}. ` : ''}Click “Accept this quote” to read and sign our engagement letter and pay securely online.`);
+    html += `<section class="sec"><h2>Notes</h2><ul class="notes">${notes.map(x => `<li>${x}</li>`).join('')}</ul></section>`;
+
+    html += `<div class="accept"><button type="button" class="btn btn-teal" id="go" disabled>Accept this quote</button>
+      <p id="go-hint">${ongoing > 0 && n ? 'Choose how you would like to pay first.' : ''}</p>
+      <p>Online acceptance is being finalised. To go ahead now, reply to our email${phone ? ' or call ' + esc(phone) : ''}.</p></div>`;
     $('main').innerHTML = html;
 
-    const ch = document.getElementById('choice');
+    const ch = $('choice');
     if (ch) ch.onclick = (e) => {
       const b = e.target.closest('[data-v]'); if (!b) return;
-      ch.querySelectorAll('.cq-opt').forEach(x => x.classList.toggle('on', x === b));
+      ch.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x === b));
       try { sessionStorage.setItem('a4t-pay-' + token.slice(0, 12), b.dataset.v); } catch (_) {}
       $('go-hint').textContent = '';
     };

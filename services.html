@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=6">
+  <link rel="stylesheet" href="assets/css/app.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -58,8 +58,8 @@
       </div>
 
       <div class="field">
-        <label for="f-desc">Short description <span style="font-weight:400;color:var(--muted)">(shown to the client)</span></label>
-        <textarea id="f-desc" rows="2" maxlength="400" placeholder="e.g. Preparation and filing of your annual tax return"></textarea>
+        <label for="f-desc">Short description <span style="font-weight:400;color:var(--muted)">(5 words max, shown to the client)</span></label>
+        <input id="f-desc" type="text" maxlength="60" placeholder="e.g. Annual accounts and CT600 filed">
       </div>
 
       <div class="field">
@@ -201,9 +201,9 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=6"></script>
-  <script src="assets/js/app.js?v=6"></script>
-  <script src="assets/js/pricing.js?v=6"></script>
+  <script src="assets/js/config.js?v=7"></script>
+  <script src="assets/js/app.js?v=7"></script>
+  <script src="assets/js/pricing.js?v=7"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -461,6 +461,7 @@
       const s = currentService();
       const name = $('f-name').value.trim();
       if (!name) return showErr('form-err', 'Enter a service name.');
+      if ($('f-desc').value.trim().split(/\s+/).filter(Boolean).length > 5) return showErr('form-err', 'Keep the short description to 5 words or fewer.');
       if (s.pricing_type === 'fixed' && (s.default_price === null || s.default_price < 0)) return showErr('form-err', 'Enter a price.');
       if (s.pricing_type !== 'fixed') {
         if (!s.unit_label.trim()) return showErr('form-err', 'Enter a quantity label, e.g. “employees”.');

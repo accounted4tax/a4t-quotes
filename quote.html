@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=6">
+  <link rel="stylesheet" href="assets/css/app.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -101,11 +101,11 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=6"></script>
-  <script src="assets/js/app.js?v=6"></script>
-  <script src="assets/js/pricing.js?v=6"></script>
-  <script src="assets/js/quote-calc.js?v=6"></script>
-  <script src="assets/js/client-form.js?v=6"></script>
+  <script src="assets/js/config.js?v=7"></script>
+  <script src="assets/js/app.js?v=7"></script>
+  <script src="assets/js/pricing.js?v=7"></script>
+  <script src="assets/js/quote-calc.js?v=7"></script>
+  <script src="assets/js/client-form.js?v=7"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -220,8 +220,9 @@
     function lineTypeBadge(cl) {
       if (!cl) return '';
       if (cl.kind === 'deposit_balance') return `<span class="chip gold">${money(cl.deposit)} on acceptance · ${money(cl.balance)} before submission</span>`;
-      if (cl.kind === 'one_off') return '<span class="chip gold">One-off</span>';
-      return '<span class="chip">Pay in full or monthly</span>';
+      if (cl.kind === 'one_off') return '<span class="chip gold">Catch-up · one-off</span>';
+      if (cl.group === 'monthly') return '<span class="chip">Monthly service</span>';
+      return '<span class="chip">Year-end service · spread monthly</span>';
     }
     function renderLines() {
       if (!lines.length) { $('lines').innerHTML = '<p class="hint">No services yet. Tap “Add service”.</p>'; return; }
@@ -229,7 +230,8 @@
         const s = l.service, cl = calc && calc.lines[i];
         const qtyField = s.pricing_type !== 'fixed' ? `<div class="field"><label for="ln-q-${i}">${esc(s.pricing_type === 'income_based' ? 'Estimated income (£)' : (s.unit_label ? s.unit_label.charAt(0).toUpperCase() + s.unit_label.slice(1) : 'Quantity'))}</label>
           <input id="ln-q-${i}" data-i="${i}" data-k="quantity" type="number" inputmode="${s.pricing_type === 'income_based' ? 'decimal' : 'numeric'}" min="0" step="${s.pricing_type === 'income_based' ? '100' : '1'}" value="${l.quantity ?? ''}" ${editable ? '' : 'disabled'}></div>` : '';
-        const monthsField = s.price_period === 'monthly' ? `<div class="field"><label for="ln-m-${i}">Months charged</label>
+        // ongoing monthly services run for every payment left; months are only entered for catch-up
+        const monthsField = s.price_period === 'monthly' && (l.is_earlier_year || s.service_kind !== 'ongoing') ? `<div class="field"><label for="ln-m-${i}">Months to catch up</label>
           <input id="ln-m-${i}" data-i="${i}" data-k="months" type="number" inputmode="numeric" min="1" max="24" step="1" value="${l.months ?? 12}" ${editable ? '' : 'disabled'}></div>` : '';
         const canEarlier = s.service_kind === 'ongoing' && s.payment_structure !== 'deposit_balance';
         return `<div class="qline" data-i="${i}">
@@ -351,6 +353,7 @@
           <div class="pay-opt"><b>Pay in full</b><span>${money(o.one_off.due_now)} on acceptance</span></div>
           ${o.monthly ? `<div class="pay-opt"><b>Pay monthly</b><span>${money(o.monthly.due_now)} on acceptance, then ${esc(o.monthly.then)} (last ${esc(fd(s.last_payment_date))})</span></div>`
             : (t.ongoing_total > 0 ? '<div class="pay-opt muted"><b>Monthly</b><span>Not available for this quote</span></div>' : '')}
+          ${o.monthly && s.year_end_per_month && s.monthly_services_per_month ? `<div class="pay-opt"><b>Monthly fee</b><span>${money(s.year_end_per_month)} year-end services + ${money(s.monthly_services_per_month)} monthly services</span></div>` : ''}
           ${t.balance_later ? `<div class="pay-opt"><b>Later</b><span>${money(t.balance_later)} balance before submission to HMRC</span></div>` : ''}
         </div>
         ${errs.length ? `<ul class="problems">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;

@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (!/^[a-f0-9]{64}$/.test(String(token || ''))) return fail(404, 'not_found', 'This quote link is not valid.');
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
-  const { data: q } = await db.from('qs_quotes').select('*, client:qs_clients(full_name,company_name,trading_name,client_type)').eq('access_token', token).maybeSingle();
+  const { data: q } = await db.from('qs_quotes').select('*, client:qs_clients(full_name,company_name,trading_name,client_type,crn)').eq('access_token', token).maybeSingle();
   if (!q) return fail(404, 'not_found', 'This quote link is not valid.');
   if (q.status === 'draft' && !preview) return fail(409, 'being_updated', 'This quote is being updated. We will email you when it is ready.');
 
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   }
 
   const [{ data: lines }, { data: st }] = await Promise.all([
-    db.from('qs_quote_lines').select('description,period_label,quantity,unit_label,months,price_period,charge_kind,gross_amount,discount_amount,line_total,deposit_amount,balance_amount,pricing_type,service_id,sort_order').eq('quote_id', q.id).order('sort_order'),
+    db.from('qs_quote_lines').select('description,period_label,quantity,unit_label,unit_price,months,is_earlier_year,price_period,charge_kind,gross_amount,discount_amount,line_total,deposit_amount,balance_amount,pricing_type,service_id,sort_order').eq('quote_id', q.id).order('sort_order'),
     db.from('qs_settings').select('key,value').in('key', ['practice', 'stripe_mode']),
   ]);
   const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   const p = S.practice || {};
   return json({
-    practice: { name: p.name, crn: p.crn, registered_office: p.registered_office, email: p.email, phone: p.phone, website: p.website },
+    practice: { name: p.name, crn: p.crn, registered_office: p.registered_office, email: p.email, phone: p.phone, website: p.website, tagline: p.tagline },
     stripe_mode: S.stripe_mode || 'test',
     preview: !!preview,
     quote: {
@@ -54,10 +54,10 @@ Deno.serve(async (req) => {
       first_payment_date: q.first_payment_date, last_payment_date: q.last_payment_date, late_start: q.late_start,
       message_to_client: q.message_to_client, payment_option: q.payment_option,
     },
-    client: { name: q.client.client_type === 'ltd' ? q.client.company_name : (q.client.trading_name || q.client.full_name), contact: q.client.full_name, client_type: q.client.client_type },
+    client: { name: q.client.client_type === 'ltd' ? q.client.company_name : (q.client.trading_name || q.client.full_name), contact: q.client.full_name, client_type: q.client.client_type, company_name: q.client.company_name, trading_name: q.client.trading_name, crn: q.client.crn },
     lines: (lines || []).map((l: any) => ({
       description: l.description, about: descr[l.service_id] || null, period_label: l.period_label,
-      quantity: l.quantity, unit_label: l.unit_label, pricing_type: l.pricing_type, months: l.months, price_period: l.price_period,
+      quantity: l.quantity, unit_label: l.unit_label, unit_price: l.unit_price, is_earlier_year: l.is_earlier_year, pricing_type: l.pricing_type, months: l.months, price_period: l.price_period,
       kind: l.charge_kind, gross: l.gross_amount, discount: l.discount_amount, total: l.line_total, deposit: l.deposit_amount, balance: l.balance_amount,
     })),
   });
