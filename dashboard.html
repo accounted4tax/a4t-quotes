@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=6">
+  <link rel="stylesheet" href="assets/css/app.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -41,6 +41,16 @@
     </section>
 
     <section class="card">
+      <h2>Company lookup</h2>
+      <p style="color:var(--muted);font-size:.9rem;margin-bottom:10px">Type a company name or number. This is how the Clients page will fill in Ltd details.</p>
+      <div class="ta">
+        <input id="co-q" type="text" autocomplete="off" placeholder="e.g. Accounted 4 Tax or 16438537" aria-label="Company name or number">
+        <div class="ta-list" id="co-list" role="listbox"></div>
+      </div>
+      <div id="co-out"></div>
+    </section>
+
+    <section class="card">
       <h2>System check</h2>
       <ul id="checks" class="check-list"></ul>
     </section>
@@ -49,8 +59,8 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=6"></script>
-  <script src="assets/js/app.js?v=6"></script>
+  <script src="assets/js/config.js?v=7"></script>
+  <script src="assets/js/app.js?v=7"></script>
   <script>
     (async function () {
       const session = await A4T.requireAdmin();
@@ -93,6 +103,86 @@
       addCheck('ok', 'Services & pricing catalogue (Phase 3)');
       addCheck('todo', 'Quote builder & Brevo emails (Phase 4)');
       document.getElementById('checks').innerHTML = checks.join('');
+
+      // ---------- Company lookup (type-ahead) ----------
+      (function () {
+        const q = document.getElementById('co-q'), list = document.getElementById('co-list'), out = document.getElementById('co-out');
+        const esc = A4T.esc;
+        const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        const dob = (d) => d ? new Date(Date.UTC(d.year, d.month - 1, 1)).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '';
+        let timer = null, seq = 0, results = [], hl = -1;
+
+        async function call(body) {
+          const res = await A4T.sb.functions.invoke('companies-house-lookup', { body });
+          if (res.error) {
+            let msg = res.error.message;
+            try { const b = await res.error.context.json(); if (b.error) msg = b.error.message; } catch (_) {}
+            throw new Error(msg);
+          }
+          return res.data;
+        }
+        function close() { list.classList.remove('open'); hl = -1; }
+        function renderList() {
+          if (!results.length) { list.innerHTML = '<div class="ta-item"><span>No companies found</span></div>'; list.classList.add('open'); return; }
+          list.innerHTML = results.map((r, i) => `<div class="ta-item ${i === hl ? 'hl' : ''}" data-i="${i}" role="option">
+            <b>${esc(r.company_name)}</b>
+            <span>${esc(r.company_number)} · <span class="${r.company_status === 'active' ? '' : 'st-dissolved'}">${esc(r.company_status || '')}</span>${r.address_snippet ? ' · ' + esc(r.address_snippet) : ''}</span></div>`).join('');
+          list.classList.add('open');
+        }
+        q.addEventListener('input', () => {
+          clearTimeout(timer);
+          const v = q.value.trim();
+          if (v.length < 2) { close(); return; }
+          timer = setTimeout(async () => {
+            const my = ++seq;
+            try {
+              const looksLikeNumber = /^([A-Za-z]{2})?\d{6,8}$/.test(v.replace(/\s/g, ''));
+              if (looksLikeNumber) { close(); return pick(v); }
+              const d = await call({ search: v });
+              if (my !== seq) return;
+              results = d.results || []; hl = -1; renderList();
+            } catch (e) { list.innerHTML = `<div class="ta-item"><span class="warn">${esc(e.message)}</span></div>`; list.classList.add('open'); }
+          }, 350);
+        });
+        q.addEventListener('keydown', (e) => {
+          if (!list.classList.contains('open') || !results.length) return;
+          if (e.key === 'ArrowDown') { hl = Math.min(hl + 1, results.length - 1); renderList(); e.preventDefault(); }
+          else if (e.key === 'ArrowUp') { hl = Math.max(hl - 1, 0); renderList(); e.preventDefault(); }
+          else if (e.key === 'Enter' && hl >= 0) { e.preventDefault(); choose(hl); }
+          else if (e.key === 'Escape') close();
+        });
+        list.addEventListener('click', (e) => { const it = e.target.closest('[data-i]'); if (it) choose(Number(it.dataset.i)); });
+        document.addEventListener('click', (e) => { if (!e.target.closest('.ta')) close(); });
+        function choose(i) { const r = results[i]; close(); q.value = r.company_name; pick(r.company_number); }
+
+        async function pick(number) {
+          out.innerHTML = '<p style="color:var(--muted);margin-top:12px">Loading company details…</p>';
+          try {
+            const c = await call({ company_number: number });
+            const person = (p, extra) => `<div class="person"><b>${esc(p.name)}</b>${extra}
+              <small>${p.date_of_birth ? 'Born ' + esc(dob(p.date_of_birth)) + ' · ' : ''}${esc(p.nationality || '')}${p.country_of_residence ? ' · lives in ' + esc(p.country_of_residence) : ''}</small>
+              <small>Service address: ${esc(p.address.single_line || '—')}</small></div>`;
+            const os = c.outstanding_accounts || [];
+            out.innerHTML = `<div class="co-block">
+              <h3>Company</h3>
+              <dl class="kv">
+                <dt>Name</dt><dd><b>${esc(c.company_name)}</b></dd>
+                <dt>Number</dt><dd>${esc(c.company_number)}</dd>
+                <dt>Status</dt><dd class="${c.company_status === 'active' ? '' : 'warn'}">${esc(c.company_status)}</dd>
+                <dt>Registered office</dt><dd>${esc(c.registered_office.single_line)}</dd>
+                <dt>Year end</dt><dd>${esc(c.accounting_reference_date.label || '—')} · current year end <b>${esc(fmt(c.upcoming_year_end))}</b></dd>
+                <dt>Outstanding accounts</dt><dd>${os.length ? os.map(p => `period to ${esc(fmt(p.period_end))}, due ${esc(fmt(p.due_date))}${p.overdue ? ' <span class="warn">OVERDUE</span>' : ''}`).join('<br>') : 'None'}</dd>
+                <dt>Confirmation stmt</dt><dd>due ${esc(fmt(c.confirmation_statement_due_date))}${c.confirmation_statement_overdue ? ' <span class="warn">OVERDUE</span>' : ''}</dd>
+              </dl>
+              <h3>Officers (${c.officers.length})</h3>
+              ${c.officers.map(o => person(o, ` <small>${esc(String(o.role || '').replace(/-/g, ' '))} since ${esc(fmt(o.appointed_on))}</small>`)).join('') || '<p>None listed</p>'}
+              <h3>People with significant control (${c.pscs.length})</h3>
+              ${c.pscs.map(p => person(p, `<small>${esc(p.control_summary.join('; '))}</small>`)).join('') || '<p>None listed</p>'}
+              <p class="hint">Companies House only shows service addresses. Home addresses come from the client's AML documents.</p>
+            </div>`;
+          } catch (e) { out.innerHTML = `<p class="warn" style="margin-top:12px">${esc(e.message)}</p>`; }
+        }
+      })();
 
       // Companies House lookup self-test (uses Accounted4Tax Ltd, 16438537)
       document.getElementById('ch-test').onclick = async () => {

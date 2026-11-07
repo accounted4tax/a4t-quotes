@@ -195,3 +195,23 @@ input[type=checkbox].tgl { width: 22px; height: 22px; accent-color: var(--teal);
   .opt-cards { grid-template-columns: repeat(4, 1fr); }
   .toast { bottom: 24px; }
 }
+
+/* Company lookup (type-ahead) */
+.ta { position: relative; }
+.ta-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); z-index: 20; max-height: 340px; overflow-y: auto; display: none; }
+.ta-list.open { display: block; }
+.ta-item { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.ta-item:last-child { border-bottom: 0; }
+.ta-item:hover, .ta-item.hl { background: #FBFAF7; }
+.ta-item b { color: var(--navy); display: block; }
+.ta-item span { font-size: .8rem; color: var(--muted); }
+.ta-item .st-dissolved { color: var(--danger); font-weight: 600; }
+.co-block { margin-top: 14px; }
+.co-block h3 { font: 600 .78rem var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 10px; font-size: .92rem; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.person { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: #fff; font-size: .9rem; }
+.person b { color: var(--navy); }
+.person small { color: var(--muted); display: block; }
+.warn { color: var(--danger); font-weight: 600; }

@@ -7,8 +7,13 @@
 //   From any page signed in to this Supabase project:
 //     const { data, error } = await supabase.functions.invoke(
 //       'companies-house-lookup', { body: { company_number: '16438537' } });
-//   Optional body field: include_resigned (true = also return resigned officers).
+//   Optional body field: include_resigned (true = also return resigned officers and ceased PSCs).
 //   GET also works: /functions/v1/companies-house-lookup?company_number=16438537
+//
+//   SEARCH BY NAME (for type-ahead):
+//     supabase.functions.invoke('companies-house-lookup', { body: { search: 'accounted 4 tax' } })
+//     -> { results: [{ company_number, company_name, company_status, company_type,
+//                      date_of_creation, address_snippet }] }   (up to 10, min 2 characters)
 //
 // WHO CAN CALL IT
 //   Only signed-in users listed in public.qs_admins (checked via qs_is_admin()).
@@ -31,7 +36,12 @@
 //     next_accounts_period_start, accounts_due_date, last_accounts_made_up_to,
 //     confirmation_statement_due_date, confirmation_statement_made_up_to,
 //     officers: [{ name, role, appointed_on, resigned_on, nationality, occupation,
-//                  date_of_birth: { month, year } }],
+//                  country_of_residence, date_of_birth: { month, year },
+//                  address: { lines[], postcode, country, single_line } }],   // SERVICE address only
+//     pscs: [{ name, kind, is_individual, natures_of_control[], control_summary[],
+//              notified_on, ceased_on, nationality, country_of_residence,
+//              date_of_birth: { month, year }, address: {...} }],               // SERVICE address only
+//   NOTE: Companies House never publishes home addresses. Get those from the client for AML.
 //     fetched_at
 //   }
 // ERRORS: { error: { code, message } } with codes
@@ -105,6 +115,29 @@ export function outstandingPeriods(firstEnd: string | null, firstDue: string | n
   return out;
 }
 
+// Turn a Companies House address object into { lines[], postcode, country, single_line }.
+export function formatAddress(ad: any) {
+  const x = ad || {};
+  const lines = [
+    [x.care_of ? 'c/o ' + x.care_of : null].filter(Boolean).join(''),
+    x.po_box ? 'PO Box ' + x.po_box : null,
+    [x.premises, x.address_line_1].filter(Boolean).join(' '),
+    x.address_line_2, x.locality, x.region,
+  ].filter((v) => v && String(v).trim()) as string[];
+  return {
+    lines,
+    postcode: x.postal_code || null,
+    country: x.country || null,
+    single_line: [...lines, x.postal_code].filter(Boolean).join(', '),
+  };
+}
+
+// "ownership-of-shares-75-to-100-percent" -> "Ownership of shares 75 to 100 percent"
+export function controlLabel(code: string) {
+  const t = String(code || '').replace(/-/g, ' ').replace(/\bas trust\b/, '(as trust)').replace(/\bas firm\b/, '(as firm)');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 async function chGet(path: string, key: string) {
@@ -132,27 +165,51 @@ Deno.serve(async (req) => {
 
   // 2. Read input
   let raw = '';
+  let search = '';
   let includeResigned = false;
   if (req.method === 'GET') {
     const u = new URL(req.url);
     raw = u.searchParams.get('company_number') || '';
+    search = u.searchParams.get('search') || '';
     includeResigned = u.searchParams.get('include_resigned') === 'true';
   } else {
     const body = await req.json().catch(() => ({}));
     raw = body.company_number || '';
+    search = body.search || '';
     includeResigned = body.include_resigned === true;
   }
-  const number = normaliseCompanyNumber(raw);
-  if (!number) return fail(400, 'bad_request', 'Enter a valid company number, e.g. 16438537 or SC123456.');
 
   // 3. Key configured?
   const key = Deno.env.get('COMPANIES_HOUSE_API_KEY');
   if (!key) return fail(503, 'not_configured', 'Companies House API key has not been added yet.');
 
+  // 3a. Search by name
+  if (!raw && search) {
+    const q = String(search).trim();
+    if (q.length < 2) return json({ results: [] });
+    const r = await chGet(`/search/companies?q=${encodeURIComponent(q)}&items_per_page=10`, key);
+    if (r.status === 429) return fail(429, 'rate_limited', 'Companies House is busy. Try again in a minute.');
+    if (r.status === 401) return fail(503, 'not_configured', 'Companies House rejected the API key. Check the secret.');
+    if (r.status !== 200) return fail(502, 'upstream_error', 'Companies House search did not respond properly. Try again.');
+    const results = ((r.data?.items || []) as any[]).map((i) => ({
+      company_number: i.company_number,
+      company_name: i.title,
+      company_status: i.company_status || null,
+      company_type: i.company_type || null,
+      date_of_creation: i.date_of_creation || null,
+      address_snippet: i.address_snippet || null,
+    }));
+    return json({ results });
+  }
+
+  const number = normaliseCompanyNumber(raw);
+  if (!number) return fail(400, 'bad_request', 'Enter a valid company number, e.g. 16438537 or SC123456, or a name to search.');
+
   // 4. Fetch profile + officers in parallel
-  const [profile, officers] = await Promise.all([
+  const [profile, officers, pscRes] = await Promise.all([
     chGet(`/company/${number}`, key),
     chGet(`/company/${number}/officers?items_per_page=100`, key),
+    chGet(`/company/${number}/persons-with-significant-control?items_per_page=100`, key),
   ]);
   if (profile.status === 404) return fail(404, 'not_found', `No company found with number ${number}.`);
   if (profile.status === 401) return fail(503, 'not_configured', 'Companies House rejected the API key. Check the secret.');
@@ -163,10 +220,6 @@ Deno.serve(async (req) => {
   const a = c.accounts || {};
   const ard = a.accounting_reference_date || {};
   const ro = c.registered_office_address || {};
-  const lines = [
-    [ro.premises, ro.address_line_1].filter(Boolean).join(' '),
-    ro.address_line_2, ro.locality, ro.region,
-  ].filter((x) => x && String(x).trim());
   const ardDay = ard.day ? Number(ard.day) : null;
   const ardMonth = ard.month ? Number(ard.month) : null;
 
@@ -180,7 +233,28 @@ Deno.serve(async (req) => {
       resigned_on: o.resigned_on || null,
       nationality: o.nationality || null,
       occupation: o.occupation || null,
+      country_of_residence: o.country_of_residence || null,
       date_of_birth: o.date_of_birth ? { month: o.date_of_birth.month, year: o.date_of_birth.year } : null,
+      address: formatAddress(o.address),
+    }));
+
+  const pscItems = (pscRes.data?.items || []) as any[];
+  const pscList = pscItems
+    .filter((p) => includeResigned || !(p.ceased_on || p.ceased))
+    .filter((p) => !String(p.kind || '').includes('statement'))
+    .map((p) => ({
+      name: p.name || null,
+      kind: p.kind || null,
+      is_individual: String(p.kind || '').startsWith('individual'),
+      natures_of_control: p.natures_of_control || [],
+      control_summary: (p.natures_of_control || []).map(controlLabel),
+      notified_on: p.notified_on || null,
+      ceased_on: p.ceased_on || null,
+      nationality: p.nationality || null,
+      country_of_residence: p.country_of_residence || null,
+      date_of_birth: p.date_of_birth ? { month: p.date_of_birth.month, year: p.date_of_birth.year } : null,
+      address: formatAddress(p.address),
+      registration_number: p.identification?.registration_number || null,
     }));
 
   return json({
@@ -190,12 +264,7 @@ Deno.serve(async (req) => {
     company_type: c.type || null,
     date_of_creation: c.date_of_creation || null,
     sic_codes: c.sic_codes || [],
-    registered_office: {
-      lines,
-      postcode: ro.postal_code || null,
-      country: ro.country || null,
-      single_line: [...lines, ro.postal_code].filter(Boolean).join(', '),
-    },
+    registered_office: formatAddress(ro),
     accounting_reference_date: {
       day: ardDay,
       month: ardMonth,
@@ -215,6 +284,8 @@ Deno.serve(async (req) => {
     confirmation_statement_made_up_to: c.confirmation_statement?.next_made_up_to || null,
     officers: officerList,
     officers_available: officers.status === 200,
+    pscs: pscList,
+    pscs_available: pscRes.status === 200 || pscRes.status === 404,
     fetched_at: new Date().toISOString(),
   });
 });
