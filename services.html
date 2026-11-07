@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=3">
+  <link rel="stylesheet" href="assets/css/app.css?v=4">
 </head>
 <body>
   <header class="topbar">
@@ -83,6 +83,7 @@
           <button type="button" class="opt-card" data-v="tiered_transactions"><b>Transactions</b><span>Bookkeeping volume</span></button>
           <button type="button" class="opt-card" data-v="per_employee"><b>Per employee</b><span>Payroll</span></button>
           <button type="button" class="opt-card" data-v="per_subcontractor"><b>Per subcontractor</b><span>CIS</span></button>
+          <button type="button" class="opt-card" data-v="income_based"><b>Estimated income</b><span>Self Assessment</span></button>
         </div>
       </div>
 
@@ -108,7 +109,7 @@
           <label for="f-unit">Quantity label</label>
           <input id="f-unit" type="text" maxlength="60" placeholder="e.g. transactions per month">
         </div>
-        <div class="field">
+        <div class="field" id="method-wrap">
           <label>Price using</label>
           <div class="seg" id="method">
             <button type="button" data-v="rate">Base fee + rate</button>
@@ -121,8 +122,18 @@
             <input id="f-base" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="field">
-            <label for="f-rate">Rate per unit (£)</label>
+            <label for="f-rate" id="f-rate-label">Rate per unit (£)</label>
             <input id="f-rate" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field" id="incl-wrap">
+            <label for="f-incl">Included in base fee</label>
+            <input id="f-incl" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
+            <p class="hint">e.g. 5 = the base fee covers up to 5; the rate applies to each one after that.</p>
+          </div>
+          <div class="field" id="size-wrap">
+            <label for="f-size">Rate applies per £ of income</label>
+            <input id="f-size" type="number" inputmode="numeric" min="1" step="1" placeholder="10000">
+            <p class="hint">e.g. 10000 = rate charged for each full £10,000 of estimated income.</p>
           </div>
         </div>
         <div class="field" id="bands-wrap">
@@ -183,9 +194,9 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=3"></script>
-  <script src="assets/js/app.js?v=3"></script>
-  <script src="assets/js/pricing.js?v=3"></script>
+  <script src="assets/js/config.js?v=4"></script>
+  <script src="assets/js/app.js?v=4"></script>
+  <script src="assets/js/pricing.js?v=4"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -197,9 +208,9 @@
     const esc = A4T.esc;
     const money = (n) => A4T.money(n);
 
-    const PTYPE_LABEL = { fixed: 'Fixed', tiered_transactions: 'Transactions', per_employee: 'Per employee', per_subcontractor: 'Per subcontractor' };
+    const PTYPE_LABEL = { fixed: 'Fixed', tiered_transactions: 'Transactions', per_employee: 'Per employee', per_subcontractor: 'Per subcontractor', income_based: 'By income' };
     const CTYPE_LABEL = { both: 'All clients', sole_trader: 'Sole traders', landlord: 'Landlords', ltd: 'Ltd companies' };
-    const UNIT_DEFAULT = { tiered_transactions: 'transactions per month', per_employee: 'employees', per_subcontractor: 'subcontractors' };
+    const UNIT_DEFAULT = { tiered_transactions: 'transactions per month', per_employee: 'employees', per_subcontractor: 'subcontractors', income_based: 'estimated income (£)' };
 
     let services = [];
     let filter = 'active';
@@ -231,6 +242,11 @@
         return 'from ' + money(b[0].price) + `<small>${b.length} band${b.length > 1 ? 's' : ''}${suf}</small>`;
       }
       const base = Number(s.base_fee || 0), rate = Number(s.per_unit_rate || 0);
+      if (s.pricing_type === 'income_based') {
+        const size = Number(s.unit_size || 10000);
+        return 'from ' + money(base) + `<small>+ ${money(rate)} per £${(size / 1000).toLocaleString('en-GB')}k income${suf}</small>`;
+      }
+      if (Number(s.included_units)) return money(base) + `<small>up to ${s.included_units}, then ${money(rate)} each${suf}</small>`;
       return (base ? money(base) + ' + ' : '') + money(rate) + `<small>per ${esc((s.unit_label || 'unit').replace(/s\b.*$/, ''))}${suf}</small>`;
     }
 
@@ -279,7 +295,7 @@
       showErr('form-err', '');
       editing = s ? { ...s } : {
         id: null, name: '', description: '', service_kind: 'ongoing', pricing_type: 'fixed', price_period: 'monthly',
-        default_price: null, base_fee: null, per_unit_rate: null, use_bands: false, unit_label: '', client_type: 'both',
+        default_price: null, base_fee: null, per_unit_rate: null, use_bands: false, unit_label: '', client_type: 'both', unit_size: 1, included_units: 0,
         hmrc_tax_types: [], is_active: true, sort_order: (services.length + 1) * 10,
       };
       bands = s ? s.bands.map(b => ({ min_qty: b.min_qty, max_qty: b.max_qty, price: b.price })) : [];
@@ -291,6 +307,8 @@
       $('f-unit').value = editing.unit_label || '';
       $('f-base').value = editing.base_fee ?? '';
       $('f-rate').value = editing.per_unit_rate ?? '';
+      $('f-incl').value = editing.included_units || '';
+      $('f-size').value = editing.unit_size && Number(editing.unit_size) !== 1 ? Number(editing.unit_size) : '';
       $('f-ctype').value = editing.client_type;
       $('f-active').checked = !!editing.is_active;
       $('f-sort').value = editing.sort_order ?? 0;
@@ -319,6 +337,7 @@
       editing.pricing_type = b.dataset.v;
       if (b.dataset.v !== 'fixed' && (!$('f-unit').value || $('f-unit').value === UNIT_DEFAULT[was])) $('f-unit').value = UNIT_DEFAULT[b.dataset.v];
       if (b.dataset.v === 'tiered_transactions' && was !== 'tiered_transactions' && !editing.id) editing.use_bands = true;
+      if (b.dataset.v === 'income_based') { editing.use_bands = false; if (!$('f-size').value) $('f-size').value = 10000; }
       syncForm();
     };
     $('method').onclick = (e) => {
@@ -336,7 +355,13 @@
       const fixed = editing.pricing_type === 'fixed';
       $('fixed-wrap').style.display = fixed ? '' : 'none';
       $('qty-wrap').style.display = fixed ? 'none' : '';
+      const income = editing.pricing_type === 'income_based';
+      if (income) editing.use_bands = false;
+      $('method-wrap').style.display = income ? 'none' : '';
       $('rate-wrap').style.display = !fixed && !editing.use_bands ? '' : 'none';
+      $('incl-wrap').style.display = !fixed && !income ? '' : 'none';
+      $('size-wrap').style.display = income ? '' : 'none';
+      $('f-rate-label').textContent = income ? 'Rate per income step (£)' : 'Rate per unit (£)';
       $('bands-wrap').style.display = !fixed && editing.use_bands ? '' : 'none';
       // One-off services are always a one-off fee
       $('f-period').querySelectorAll('option').forEach(o => o.disabled = editing.service_kind === 'catch_up' && o.value !== 'one_off');
@@ -394,6 +419,8 @@
         default_price: $('f-price').value === '' ? null : Number($('f-price').value),
         base_fee: $('f-base').value === '' ? null : Number($('f-base').value),
         per_unit_rate: $('f-rate').value === '' ? null : Number($('f-rate').value),
+        included_units: $('f-incl').value === '' ? 0 : Number($('f-incl').value),
+        unit_size: editing.pricing_type === 'income_based' ? (Number($('f-size').value) || 10000) : 1,
         unit_label: $('f-unit').value, bands: bands.map(b => ({ ...b, max_qty: b.max_qty === '' ? null : b.max_qty })),
       };
     }
@@ -407,7 +434,7 @@
       const yearly = editing.service_kind === 'ongoing' && s.price_period === 'monthly' ? ` · ${money(P.annualise(s, r.price))} a year` : '';
       $('calc-out').innerHTML = money(r.price) + esc(P.periodSuffix(s)) + `<small>${esc(r.detail)}${yearly}</small>`;
     }
-    ['f-price', 'f-base', 'f-rate', 'calc-qty'].forEach(id => $(id).addEventListener('input', runCalc));
+    ['f-price', 'f-base', 'f-rate', 'f-incl', 'f-size', 'calc-qty'].forEach(id => $(id).addEventListener('input', runCalc));
     $('f-unit').addEventListener('input', () => { $('calc-label').textContent = `Price check: enter ${$('f-unit').value || 'a quantity'}`; });
 
     // ---------- Save ----------
@@ -439,6 +466,8 @@
         per_unit_rate: s.pricing_type !== 'fixed' && !s.use_bands ? s.per_unit_rate : null,
         use_bands: s.pricing_type !== 'fixed' && s.use_bands,
         unit_label: s.pricing_type === 'fixed' ? null : s.unit_label.trim(),
+        unit_size: s.pricing_type === 'income_based' ? s.unit_size : 1,
+        included_units: s.pricing_type !== 'fixed' && s.pricing_type !== 'income_based' && !s.use_bands ? Math.max(0, Math.floor(s.included_units || 0)) : 0,
         billing_type: s.price_period === 'one_off' ? 'one_off' : s.price_period,
         is_recurring: editing.service_kind === 'ongoing',
         is_mtd: [...document.querySelectorAll('#tax input:checked')].some(c => c.value === 'mtd'),

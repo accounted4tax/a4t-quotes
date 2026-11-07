@@ -25,8 +25,8 @@
     }
 
     const q = Number(qty);
-    if (!Number.isFinite(q) || q < 0 || !Number.isInteger(q))
-      return { price: null, error: 'Enter a whole number' };
+    if (!Number.isFinite(q) || q < 0 || (type !== 'income_based' && !Number.isInteger(q)))
+      return { price: null, error: type === 'income_based' ? 'Enter the estimated income' : 'Enter a whole number' };
     const unit = service.unit_label || 'units';
 
     if (service.use_bands) {
@@ -37,7 +37,16 @@
 
     const base = Number(service.base_fee || 0);
     const rate = Number(service.per_unit_rate || 0);
-    return { price: round2(base + rate * q), detail: `£${base.toFixed(2)} base + ${q} × £${rate.toFixed(2)}` };
+    const size = Number(service.unit_size || 1) > 0 ? Number(service.unit_size || 1) : 1;
+    const included = Math.max(0, Number(service.included_units || 0));
+    const units = Math.floor(q / size);            // e.g. £35,000 income / 10,000 = 3 units
+    const charged = Math.max(0, units - included);  // e.g. 8 employees, 5 included = 3 charged
+    const money = (n) => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    let detail;
+    if (type === 'income_based') detail = `${money(base)} base + ${charged} × ${money(rate)} per £${size.toLocaleString('en-GB')} of income`;
+    else if (included) detail = `${money(base)} covers up to ${included}; ${charged} extra × ${money(rate)}`;
+    else detail = `${money(base)} base + ${charged} × ${money(rate)}`;
+    return { price: round2(base + rate * charged), detail };
   }
 
   // Checks bands for gaps/overlaps. Returns a list of problems (empty = fine).
