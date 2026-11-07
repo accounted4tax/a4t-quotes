@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Your quote · Accounted4Tax</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=6">
+  <style>
+    body { background: var(--bg); }
+    .cq-top { background: var(--navy); color: #fff; padding: 18px 16px 52px; }
+    .cq-top .inner, .cq-main { max-width: 680px; margin: 0 auto; }
+    .cq-brand { font: 600 1.2rem var(--font-head); }
+    .cq-brand span { color: var(--gold); }
+    .cq-top h1 { color: #fff; font-size: 1.6rem; margin: 18px 0 4px; }
+    .cq-top p { margin: 0; color: #C9CEDA; }
+    .cq-main { padding: 0 16px 40px; margin-top: -36px; }
+    .cq-card { background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px; }
+    .cq-card h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    .cq-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .cq-item:last-child { border-bottom: 0; }
+    .cq-item b { color: var(--navy); }
+    .cq-item .meta { font-size: .85rem; color: var(--muted); margin-top: 2px; }
+    .cq-item .amt { font: 600 1.05rem var(--font-head); color: var(--navy); white-space: nowrap; text-align: right; }
+    .cq-item .amt s { display: block; font: 400 .78rem var(--font-body); color: var(--muted); }
+    .cq-row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .cq-total { font: 600 1.35rem var(--font-head); color: var(--navy); border-top: 2px solid var(--navy); margin-top: 6px; padding-top: 10px; }
+    .cq-choice { display: grid; gap: 10px; }
+    .cq-opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--line); border-radius: 12px; padding: 14px; cursor: pointer; background: #fff; text-align: left; font: inherit; color: inherit; width: 100%; }
+    .cq-opt.on { border-color: var(--teal); background: #F4FAF9; }
+    .cq-opt .radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: 0 0 22px; margin-top: 2px; }
+    .cq-opt.on .radio { border: 7px solid var(--teal); }
+    .cq-opt b { color: var(--navy); display: block; font-size: 1.02rem; }
+    .cq-opt .big { font: 600 1.3rem var(--font-head); color: var(--navy); margin: 4px 0 2px; }
+    .cq-opt small { color: var(--muted); display: block; }
+    .cq-note { background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; font-size: .9rem; color: #5c4a12; margin-top: 10px; }
+    .cq-msg { background: #F7F5F0; border-left: 3px solid var(--gold); padding: 12px 14px; border-radius: 0 10px 10px 0; white-space: pre-line; }
+    .cq-foot { text-align: center; font-size: .8rem; color: var(--muted); margin-top: 18px; line-height: 1.6; }
+    .cq-state { text-align: center; padding: 30px 18px; }
+    .preview-bar { background: var(--gold); color: var(--navy); text-align: center; font-weight: 600; font-size: .85rem; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <div id="pv"></div>
+  <header class="cq-top"><div class="inner">
+    <div class="cq-brand">Accounted4Tax <span>·</span> Quote</div>
+    <h1 id="h1">Your quote</h1>
+    <p id="h1sub">Loading…</p>
+  </div></header>
+  <main class="cq-main" id="main"><div class="cq-card"><p>Loading your quote…</p></div></main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=6"></script>
+  <script>
+  (async function () {
+    const cfg = window.A4T_CONFIG;
+    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = (n) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(n || 0));
+    const fd = (d) => d ? new Date(String(d).length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const $ = (id) => document.getElementById(id);
+    const p = new URLSearchParams(location.search);
+    const token = p.get('t'), preview = p.get('preview') === '1';
+
+    function state(title, text) {
+      $('h1').textContent = title; $('h1sub').textContent = '';
+      $('main').innerHTML = `<div class="cq-card cq-state"><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a></p></div>`;
+    }
+    if (!token) return state('Quote not found', 'This link is incomplete. Please use the link in your email.');
+
+    let d;
+    try {
+      const res = await sb.functions.invoke('quote-public', { body: { token, preview } });
+      if (res.error) {
+        let m = 'This quote link is not valid.';
+        try { const b = await res.error.context.json(); if (b.error) m = b.error.message; } catch (_) {}
+        return state('Quote unavailable', esc(m));
+      }
+      d = res.data;
+    } catch (e) { return state('Something went wrong', 'Please try again in a moment.'); }
+
+    const q = d.quote, L = d.lines;
+    if (d.preview) $('pv').innerHTML = '<div class="preview-bar">Preview: this is what your client sees. Opening it here does not mark it as viewed.</div>';
+    document.title = `Quote ${q.quote_number} · Accounted4Tax`;
+    $('h1').textContent = `Quote for ${d.client.name}`;
+    $('h1sub').textContent = `${q.quote_number}${q.expires_at && ['sent', 'viewed'].includes(q.status) ? ' · valid until ' + fd(q.expires_at) : ''}`;
+
+    if (q.status === 'expired') return state('This quote has expired', `Quote ${esc(q.quote_number)} was valid until ${esc(fd(q.expires_at))}. Please contact us and we will send you an updated quote.`);
+    if (q.status === 'declined') return state('Quote declined', `Quote ${esc(q.quote_number)} was declined. If you have changed your mind, please contact us.`);
+
+    const oneOff = L.filter(l => l.kind !== 'ongoing'), ongoing = L.filter(l => l.kind === 'ongoing');
+    const qtyText = (l) => {
+      const bits = [];
+      if (l.pricing_type === 'income_based' && l.quantity !== null) bits.push('Based on estimated income of ' + money(l.quantity));
+      else if (l.pricing_type !== 'fixed' && l.quantity !== null) bits.push(`${Number(l.quantity)} ${l.unit_label || ''}`.trim());
+      if (l.price_period === 'monthly' && l.months) bits.push(`${l.months} month${l.months === 1 ? '' : 's'}`);
+      return bits.join(' · ');
+    };
+    const item = (l) => `<div class="cq-item"><div>
+        <b>${esc(l.description)}</b>
+        ${l.period_label ? `<div class="meta">${esc(l.period_label)}</div>` : ''}
+        ${l.about ? `<div class="meta">${esc(l.about)}</div>` : ''}
+        ${qtyText(l) ? `<div class="meta">${esc(qtyText(l))}</div>` : ''}
+        ${l.kind === 'deposit_balance' ? `<div class="meta"><b style="color:var(--teal)">${money(l.deposit)} now</b>, ${money(l.balance)} before we submit to HMRC</div>` : ''}
+      </div><div class="amt">${money(l.total)}${Number(l.discount) ? `<s>${money(l.gross)}</s>` : ''}</div></div>`;
+
+    const ye = q.year_end_date ? fd(q.year_end_date) : '';
+    let html = '';
+    if (q.message_to_client) html += `<div class="cq-card"><div class="cq-msg">${esc(q.message_to_client)}</div></div>`;
+    if (ongoing.length) html += `<div class="cq-card"><h2>Ongoing services${ye ? ' to ' + esc(ye) : ''}</h2>${ongoing.map(item).join('')}</div>`;
+    if (oneOff.length) html += `<div class="cq-card"><h2>One-off services</h2>${oneOff.map(item).join('')}</div>`;
+
+    html += `<div class="cq-card">
+      ${Number(q.discount_total) ? `<div class="cq-row"><span>Services</span><span>${money(q.subtotal)}</span></div>
+        <div class="cq-row" style="color:var(--teal)"><span>Discount${q.discount_reason ? ' (' + esc(q.discount_reason) + ')' : ''}</span><span>− ${money(q.discount_total)}</span></div>` : ''}
+      <div class="cq-row cq-total"><span>Total</span><span>${money(q.total)}</span></div>
+      <p class="hint" style="margin-top:6px">We are not VAT registered, so no VAT is added.${Number(q.discount_total) ? ' Discounts apply until ' + esc(ye || 'the year end') + '.' : ''}</p>
+    </div>`;
+
+    // How to pay
+    const ongoingTotal = Number(q.ongoing_total), nowOneOff = Number(q.one_off_due_now);
+    let payHtml = '<div class="cq-card"><h2>How you pay</h2>';
+    if (ongoingTotal > 0 && q.monthly_allowed) {
+      const restN = q.payments_count - 1;
+      payHtml += `<div class="cq-choice" id="choice">
+        <button type="button" class="cq-opt" data-v="one_off"><span class="radio"></span><span><b>Pay in full</b><span class="big">${money(nowOneOff + ongoingTotal)}</span><small>today, by card</small></span></button>
+        <button type="button" class="cq-opt" data-v="monthly"><span class="radio"></span><span><b>Pay monthly</b><span class="big">${money(nowOneOff + Number(q.monthly_amount))} today</span>
+          <small>then ${restN} monthly payment${restN === 1 ? '' : 's'} of ${money(q.monthly_amount)}, the last on ${esc(fd(q.last_payment_date))}. Payments stop automatically.</small></span></button>
+      </div>`;
+    } else {
+      payHtml += `<div class="cq-row cq-total" style="border-top:0;margin:0;padding:0"><span>Due on acceptance</span><span>${money(nowOneOff + ongoingTotal)}</span></div><p class="hint">Paid securely by card.</p>`;
+    }
+    if (Number(q.balance_later)) payHtml += `<div class="cq-note">Plus ${money(q.balance_later)} taken from the same card before we submit your tax return to HMRC.</div>`;
+    payHtml += '</div>';
+    html += payHtml;
+
+    html += `<div class="cq-card"><h2>Next step</h2>
+      <p>You will read and accept our engagement letter, then pay securely by card through Stripe.</p>
+      <button type="button" class="btn btn-teal" id="go" disabled>Continue</button>
+      <p class="hint" style="margin-top:8px" id="go-hint">${ongoingTotal > 0 && q.monthly_allowed ? 'Choose how you would like to pay first.' : ''}</p>
+      <p class="hint">Online acceptance is being finalised. If you would like to go ahead now, reply to our email.</p></div>`;
+
+    html += `<div class="cq-foot">${esc(d.practice.name || 'Accounted4Tax Ltd')} · Company no. ${esc(d.practice.crn || '')}<br>Registered office: ${esc(d.practice.registered_office || '')}<br>
+      <a href="mailto:${esc(d.practice.email || 'info@accounted4tax.co.uk')}">${esc(d.practice.email || 'info@accounted4tax.co.uk')}</a></div>`;
+    $('main').innerHTML = html;
+
+    const ch = document.getElementById('choice');
+    if (ch) ch.onclick = (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      ch.querySelectorAll('.cq-opt').forEach(x => x.classList.toggle('on', x === b));
+      try { sessionStorage.setItem('a4t-pay-' + token.slice(0, 12), b.dataset.v); } catch (_) {}
+      $('go-hint').textContent = '';
+    };
+  })();
+  </script>
+</body>
+</html>

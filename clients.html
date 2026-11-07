@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Clients · A4T Quotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=6">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">A4</div><div class="brand-name">A4T Quotes</div></div>
+    <button id="signout" class="btn btn-ghost" type="button">Sign out</button>
+  </header>
+  <nav class="bottom-nav" id="nav"></nav>
+
+  <main>
+    <div class="page-head">
+      <h1>Clients</h1>
+      <p>Everyone you quote. Limited companies fill in from Companies House.</p>
+    </div>
+    <div id="err" class="alert alert-error" role="alert"></div>
+
+    <div class="toolbar">
+      <button id="add" class="btn btn-gold" type="button">+ New client</button>
+      <div class="seg" id="filter">
+        <button type="button" data-f="all" class="on">All</button>
+        <button type="button" data-f="sole_trader">Sole traders</button>
+        <button type="button" data-f="landlord">Landlords</button>
+        <button type="button" data-f="ltd">Ltd</button>
+      </div>
+    </div>
+    <div class="field"><input id="search" type="text" placeholder="Search by name, company or email" aria-label="Search clients"></div>
+
+    <div id="list"><p class="empty">Loading…</p></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=6"></script>
+  <script src="assets/js/app.js?v=6"></script>
+  <script src="assets/js/client-form.js?v=6"></script>
+  <script>
+  (async function () {
+    const session = await A4T.requireAdmin();
+    if (!session) return;
+    document.getElementById('signout').onclick = A4T.signOut;
+    A4T.nav('clients');
+    const $ = (id) => document.getElementById(id), esc = A4T.esc;
+    const TYPE = { sole_trader: 'Sole trader', landlord: 'Landlord', ltd: 'Ltd company' };
+    let clients = [], quotesBy = {}, filter = 'all';
+
+    async function load() {
+      const [{ data: c, error: e1 }, { data: q }] = await Promise.all([
+        A4T.sb.from('qs_clients').select('*').order('created_at', { ascending: false }),
+        A4T.sb.from('qs_quotes').select('client_id,status'),
+      ]);
+      if (e1) { $('err').textContent = 'Could not load clients: ' + e1.message; $('err').classList.add('show'); return; }
+      clients = c; quotesBy = {};
+      (q || []).forEach(x => { (quotesBy[x.client_id] = quotesBy[x.client_id] || []).push(x.status); });
+      render();
+    }
+
+    function render() {
+      const term = $('search').value.trim().toLowerCase();
+      const shown = clients.filter(c => (filter === 'all' || c.client_type === filter) &&
+        (!term || [c.full_name, c.company_name, c.trading_name, c.email, c.crn].some(v => (v || '').toLowerCase().includes(term))));
+      if (!shown.length) { $('list').innerHTML = `<p class="empty">${clients.length ? 'No clients match.' : 'No clients yet. Tap “New client” to add your first.'}</p>`; return; }
+      $('list').innerHTML = shown.map(c => {
+        const title = c.client_type === 'ltd' ? c.company_name : c.full_name;
+        const sub = c.client_type === 'ltd' ? `${c.full_name} · ${c.crn || ''}` : (c.trading_name || '');
+        const qs = quotesBy[c.id] || [];
+        const ye = c.client_type === 'ltd' ? (c.year_end_date ? 'Year end ' + A4T.fmtDate(c.year_end_date) : 'No year end') : 'Year end 5 April';
+        return `<div class="svc ${c.client_type === 'ltd' ? '' : 'catch_up'}" data-id="${c.id}" tabindex="0" role="button">
+          <div class="svc-main">
+            <div class="svc-name">${esc(title)}</div>
+            <div class="svc-meta">${esc(sub)}${sub ? ' · ' : ''}${esc(c.email)}</div>
+            <div class="svc-meta"><span class="chip ${c.client_type === 'ltd' ? '' : 'gold'}">${TYPE[c.client_type]}</span><span class="chip grey">${esc(ye)}</span>${qs.length ? `<span class="chip grey">${qs.length} quote${qs.length > 1 ? 's' : ''}</span>` : ''}</div>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="quote.html?client=${c.id}" onclick="event.stopPropagation()">Quote</a>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.svc[data-id]').forEach(el => {
+        el.onclick = () => A4TClientForm.open(clients.find(c => c.id === el.dataset.id), () => { A4T.toast('Client saved'); load(); });
+        el.onkeydown = (e) => { if (e.key === 'Enter') el.click(); };
+      });
+    }
+
+    $('filter').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; filter = b.dataset.f; document.querySelectorAll('#filter button').forEach(x => x.classList.toggle('on', x === b)); render(); };
+    $('search').oninput = render;
+    $('add').onclick = () => A4TClientForm.open(null, () => { A4T.toast('Client saved'); load(); });
+    if (new URLSearchParams(location.search).get('new')) $('add').click();
+    await load();
+  })();
+  </script>
+</body>
+</html>

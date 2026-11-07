@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Quote · A4T Quotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=6">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">A4</div><div class="brand-name">A4T Quotes</div></div>
+    <button id="signout" class="btn btn-ghost" type="button">Sign out</button>
+  </header>
+  <nav class="bottom-nav" id="nav"></nav>
+
+  <main class="qb">
+    <div class="page-head">
+      <p><a href="quotes.html">← All quotes</a></p>
+      <h1 id="title">New quote</h1>
+      <p id="subtitle"></p>
+    </div>
+    <div id="banner"></div>
+    <div id="err" class="alert alert-error" role="alert"></div>
+
+    <!-- 1. Client -->
+    <section class="card" id="sec-client">
+      <h2>Client</h2>
+      <div id="client-pick">
+        <div class="field ta">
+          <input id="client-q" type="text" autocomplete="off" placeholder="Search your clients" aria-label="Search clients">
+          <div class="ta-list" id="client-list"></div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="client-new">+ New client</button>
+      </div>
+      <div id="client-card" style="display:none"></div>
+      <div id="outstanding"></div>
+    </section>
+
+    <!-- 2. Period -->
+    <section class="card" id="sec-period">
+      <h2>Period</h2>
+      <div class="row2">
+        <div class="field"><label for="start">Start date</label><input id="start" type="date"></div>
+        <div class="field"><label for="ye">Year end</label><input id="ye" type="date"></div>
+      </div>
+      <p class="hint" id="period-hint"></p>
+    </section>
+
+    <!-- 3. Services -->
+    <section class="card" id="sec-lines">
+      <h2>Services</h2>
+      <div id="lines"><p class="hint">No services yet.</p></div>
+      <button type="button" class="btn btn-gold btn-sm" id="add-line" style="margin-top:6px">+ Add service</button>
+    </section>
+
+    <!-- 4. Discount -->
+    <section class="card" id="sec-discount">
+      <h2>Discount on the whole quote</h2>
+      <div class="row2">
+        <div class="field"><label for="qd-type">Type</label>
+          <select id="qd-type"><option value="none">No discount</option><option value="percent">Percentage (%)</option><option value="fixed">Fixed amount (£)</option></select></div>
+        <div class="field"><label for="qd-value">Amount</label><input id="qd-value" type="number" inputmode="decimal" min="0" step="0.01"></div>
+      </div>
+      <div class="field"><label for="qd-reason">Reason <span style="font-weight:400;color:var(--muted)">(shown to the client)</span></label><input id="qd-reason" type="text" maxlength="120" placeholder="e.g. Introductory discount"></div>
+      <p class="hint">Discounts apply until the year end only. A renewal keeps them only if you renew the same quote.</p>
+    </section>
+
+    <!-- 5. Late start -->
+    <section class="card" id="sec-late" style="display:none">
+      <h2>Late start</h2>
+      <p id="late-text"></p>
+      <div class="seg" id="late-mode">
+        <button type="button" data-v="single_payment">One payment</button>
+        <button type="button" data-v="instalments">Instalments</button>
+      </div>
+      <div class="field" id="late-n-wrap" style="margin-top:10px"><label for="late-n">Number of monthly instalments</label><input id="late-n" type="number" inputmode="numeric" min="2" max="24" step="1" style="max-width:140px"></div>
+    </section>
+
+    <!-- 6. Message -->
+    <section class="card">
+      <h2>Message to the client <span style="font-weight:400;font-size:.9rem;color:var(--muted)">(optional)</span></h2>
+      <textarea id="message" rows="3" maxlength="1000" placeholder="Shown at the top of the quote and in the email"></textarea>
+    </section>
+
+    <!-- 7. Summary -->
+    <section class="card summary" id="summary"></section>
+
+    <div class="qb-actions" id="actions"></div>
+  </main>
+
+  <!-- Service picker -->
+  <div class="sheet-backdrop" id="pk-backdrop"></div>
+  <section class="sheet" id="pk-sheet" role="dialog" aria-modal="true" aria-labelledby="pk-title">
+    <div class="sheet-head"><h2 id="pk-title">Add a service</h2><button class="x-btn" type="button" id="pk-close" aria-label="Close">×</button></div>
+    <div class="field"><input id="pk-q" type="text" placeholder="Search services" aria-label="Search services"></div>
+    <div id="pk-list"></div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=6"></script>
+  <script src="assets/js/app.js?v=6"></script>
+  <script src="assets/js/pricing.js?v=6"></script>
+  <script src="assets/js/quote-calc.js?v=6"></script>
+  <script src="assets/js/client-form.js?v=6"></script>
+  <script>
+  (async function () {
+    const session = await A4T.requireAdmin();
+    if (!session) return;
+    document.getElementById('signout').onclick = A4T.signOut;
+    A4T.nav('quotes');
+    const $ = (id) => document.getElementById(id), esc = A4T.esc, money = A4T.money, fd = A4T.fmtDate, Q = window.A4TQuote, P = window.A4TPricing;
+    const params = new URLSearchParams(location.search);
+    const STATUS_TXT = { draft: 'Draft', sent: 'Sent', viewed: 'Viewed by client', accepted: 'Accepted', paid: 'Paid', expired: 'Expired', declined: 'Declined' };
+
+    let services = [], clients = [], settings = {}, client = null, calc = null;
+    let quote = { id: null, status: 'draft', version: 1, start_date: Q.todayISO(), year_end_date: null, discount_type: 'none', discount_value: 0, discount_reason: '', late_start_mode: 'single_payment', payments_count: null, message_to_client: '' };
+    let lines = [];
+    let editable = true, dirty = false;
+
+    function showErr(t) { $('err').textContent = t; $('err').classList.toggle('show', !!t); if (t) window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+    // ---------- load ----------
+    const [{ data: svc }, { data: bands }, { data: st }, { data: cl }] = await Promise.all([
+      A4T.sb.from('qs_services_catalogue').select('*').order('sort_order').order('name'),
+      A4T.sb.from('qs_service_price_bands').select('*'),
+      A4T.sb.from('qs_settings').select('key,value'),
+      A4T.sb.from('qs_clients').select('*').order('full_name'),
+    ]);
+    services = (svc || []).map(s => ({ ...s, bands: (bands || []).filter(b => b.service_id === s.id) }));
+    settings = Object.fromEntries((st || []).map(x => [x.key, x.value]));
+    clients = cl || [];
+    const svcById = (id) => services.find(s => s.id === id);
+
+    if (params.get('id')) {
+      const { data: qd, error } = await A4T.sb.from('qs_quotes').select('*').eq('id', params.get('id')).single();
+      if (error) { showErr('Quote not found.'); return; }
+      quote = qd;
+      const { data: ql } = await A4T.sb.from('qs_quote_lines').select('*').eq('quote_id', quote.id).order('sort_order');
+      lines = (ql || []).map(l => ({
+        service_id: l.service_id, service: svcById(l.service_id) || { name: l.description, pricing_type: 'fixed', default_price: l.unit_price, price_period: l.price_period, service_kind: l.service_kind },
+        quantity: l.quantity, price_override: l.price_override ? l.unit_price : null, discount_type: l.discount_type, discount_value: l.discount_value,
+        is_earlier_year: l.is_earlier_year, months: l.months, period_label: l.period_label || '',
+      }));
+      client = clients.find(c => c.id === quote.client_id) || null;
+    } else if (params.get('client')) {
+      client = clients.find(c => c.id === params.get('client')) || null;
+      if (client) quote.year_end_date = defaultYearEnd();
+    }
+
+    function defaultYearEnd() {
+      if (!client) return null;
+      if (client.client_type === 'ltd') return client.year_end_date || (client.ch_snapshot && client.ch_snapshot.upcoming_year_end) || null;
+      return Q.nextTaxYearEnd(quote.start_date || Q.todayISO());
+    }
+
+    // ---------- client ----------
+    function renderClient() {
+      $('client-pick').style.display = client || !editable ? 'none' : '';
+      $('client-card').style.display = client ? '' : 'none';
+      if (!client) { $('outstanding').innerHTML = ''; return; }
+      const ltd = client.client_type === 'ltd';
+      $('client-card').innerHTML = `<div class="svc ${ltd ? '' : 'catch_up'}" style="cursor:default;margin:0">
+        <div class="svc-main"><div class="svc-name">${esc(ltd ? client.company_name : client.full_name)}</div>
+        <div class="svc-meta">${ltd ? esc(client.full_name) + ' · ' : ''}${esc(client.email)}</div>
+        <div class="svc-meta"><span class="chip ${ltd ? '' : 'gold'}">${{ sole_trader: 'Sole trader', landlord: 'Landlord', ltd: 'Ltd company' }[client.client_type]}</span></div></div>
+        ${editable ? '<div style="display:flex;flex-direction:column;gap:6px"><button type="button" class="btn btn-ghost btn-sm" id="client-edit">Edit</button><button type="button" class="btn btn-ghost btn-sm" id="client-change">Change</button></div>' : ''}</div>`;
+      if (editable) {
+        $('client-edit').onclick = () => A4TClientForm.open(client, (saved) => { client = saved; clients = clients.map(c => c.id === saved.id ? saved : c); renderClient(); recalc(); });
+        $('client-change').onclick = () => { client = null; dirty = true; renderClient(); recalc(); };
+      }
+      renderOutstanding();
+    }
+    function renderOutstanding() {
+      const os = (client && client.client_type === 'ltd' && client.ch_snapshot && client.ch_snapshot.outstanding_accounts) || [];
+      const catchSvc = services.find(s => s.is_active && /catch-up year/i.test(s.name) && /accounts/i.test(s.name));
+      if (!os.length || !editable) { $('outstanding').innerHTML = ''; return; }
+      const label = (p) => `Accounts for the year ended ${fd(p.period_end)}`;
+      $('outstanding').innerHTML = `<div class="alert alert-ok show" style="margin-top:12px;margin-bottom:0"><b>Outstanding accounts at Companies House</b>
+        ${os.map((p, i) => {
+          const added = lines.some(l => l.period_label === label(p));
+          return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px">
+            <span>Period to ${esc(fd(p.period_end))}, due ${esc(fd(p.due_date))}${p.overdue ? ' <b class="warn">OVERDUE</b>' : ''}</span>
+            ${added ? '<span class="chip">Added</span>' : (catchSvc ? `<button type="button" class="btn btn-ghost btn-sm" data-os="${i}">Add catch-up</button>` : '')}</div>`;
+        }).join('')}</div>`;
+      document.querySelectorAll('[data-os]').forEach(b => b.onclick = () => {
+        const p = os[Number(b.dataset.os)];
+        lines.push({ service_id: catchSvc.id, service: catchSvc, quantity: null, price_override: null, discount_type: 'none', discount_value: 0, is_earlier_year: true, months: null, period_label: label(p) });
+        dirty = true; renderLines(); renderOutstanding(); recalc();
+      });
+    }
+    // client search
+    $('client-q').addEventListener('input', () => {
+      const term = $('client-q').value.trim().toLowerCase();
+      const list = $('client-list');
+      if (!term) { list.classList.remove('open'); return; }
+      const hits = clients.filter(c => [c.full_name, c.company_name, c.trading_name, c.email].some(v => (v || '').toLowerCase().includes(term))).slice(0, 8);
+      list.innerHTML = hits.length ? hits.map(c => `<div class="ta-item" data-id="${c.id}"><b>${esc(c.client_type === 'ltd' ? c.company_name : c.full_name)}</b><span>${esc(c.email)}</span></div>`).join('') : '<div class="ta-item"><span>No match. Use “New client”.</span></div>';
+      list.classList.add('open');
+    });
+    $('client-list').onclick = (e) => {
+      const it = e.target.closest('[data-id]'); if (!it) return;
+      client = clients.find(c => c.id === it.dataset.id); $('client-list').classList.remove('open'); $('client-q').value = '';
+      quote.year_end_date = defaultYearEnd(); $('ye').value = quote.year_end_date || '';
+      dirty = true; renderClient(); renderLines(); recalc();
+    };
+    $('client-new').onclick = () => A4TClientForm.open(null, (saved) => {
+      clients.push(saved); client = saved; quote.year_end_date = defaultYearEnd(); $('ye').value = quote.year_end_date || '';
+      dirty = true; renderClient(); renderLines(); recalc();
+    });
+
+    // ---------- period ----------
+    $('start').onchange = () => { quote.start_date = $('start').value || Q.todayISO(); if (client && client.client_type !== 'ltd') { quote.year_end_date = Q.nextTaxYearEnd(quote.start_date); $('ye').value = quote.year_end_date; } dirty = true; recalc(); };
+    $('ye').onchange = () => { quote.year_end_date = $('ye').value || null; dirty = true; recalc(); };
+
+    // ---------- lines ----------
+    function lineTypeBadge(cl) {
+      if (!cl) return '';
+      if (cl.kind === 'deposit_balance') return `<span class="chip gold">${money(cl.deposit)} on acceptance · ${money(cl.balance)} before submission</span>`;
+      if (cl.kind === 'one_off') return '<span class="chip gold">One-off</span>';
+      return '<span class="chip">Pay in full or monthly</span>';
+    }
+    function renderLines() {
+      if (!lines.length) { $('lines').innerHTML = '<p class="hint">No services yet. Tap “Add service”.</p>'; return; }
+      $('lines').innerHTML = lines.map((l, i) => {
+        const s = l.service, cl = calc && calc.lines[i];
+        const qtyField = s.pricing_type !== 'fixed' ? `<div class="field"><label for="ln-q-${i}">${esc(s.pricing_type === 'income_based' ? 'Estimated income (£)' : (s.unit_label ? s.unit_label.charAt(0).toUpperCase() + s.unit_label.slice(1) : 'Quantity'))}</label>
+          <input id="ln-q-${i}" data-i="${i}" data-k="quantity" type="number" inputmode="${s.pricing_type === 'income_based' ? 'decimal' : 'numeric'}" min="0" step="${s.pricing_type === 'income_based' ? '100' : '1'}" value="${l.quantity ?? ''}" ${editable ? '' : 'disabled'}></div>` : '';
+        const monthsField = s.price_period === 'monthly' ? `<div class="field"><label for="ln-m-${i}">Months charged</label>
+          <input id="ln-m-${i}" data-i="${i}" data-k="months" type="number" inputmode="numeric" min="1" max="24" step="1" value="${l.months ?? 12}" ${editable ? '' : 'disabled'}></div>` : '';
+        const canEarlier = s.service_kind === 'ongoing' && s.payment_structure !== 'deposit_balance';
+        return `<div class="qline" data-i="${i}">
+          <div class="qline-head">
+            <div><b>${esc(s.name)}</b>${l.period_label ? `<div class="hint" style="margin:0">${esc(l.period_label)}</div>` : ''}</div>
+            ${editable ? `<button type="button" class="band-del" data-del="${i}" aria-label="Remove ${esc(s.name)}">×</button>` : ''}
+          </div>
+          ${(qtyField || monthsField) ? `<div class="row2">${qtyField}${monthsField}</div>` : ''}
+          ${canEarlier ? `<label class="inline-check"><input type="checkbox" data-i="${i}" data-k="is_earlier_year" ${l.is_earlier_year ? 'checked' : ''} ${editable ? '' : 'disabled'}> Earlier year (catch-up, paid once)</label>` : ''}
+          ${(l.is_earlier_year || s.service_kind === 'catch_up') && editable ? `<div class="field" style="margin-top:8px"><label for="ln-p-${i}">Period <span style="font-weight:400;color:var(--muted)">(optional, e.g. 2025/26)</span></label><input id="ln-p-${i}" data-i="${i}" data-k="period_label" type="text" maxlength="80" value="${esc(l.period_label || '')}"></div>` : ''}
+          <div class="row2" style="margin-top:8px">
+            <div class="field"><label for="ln-d-${i}">Discount</label>
+              <select id="ln-d-${i}" data-i="${i}" data-k="discount_type" ${editable ? '' : 'disabled'}>
+                <option value="none" ${l.discount_type === 'none' ? 'selected' : ''}>None</option>
+                <option value="percent" ${l.discount_type === 'percent' ? 'selected' : ''}>%</option>
+                <option value="fixed" ${l.discount_type === 'fixed' ? 'selected' : ''}>£</option></select></div>
+            <div class="field"><label for="ln-dv-${i}">Amount</label><input id="ln-dv-${i}" data-i="${i}" data-k="discount_value" type="number" inputmode="decimal" min="0" step="0.01" value="${l.discount_type === 'none' ? '' : (l.discount_value ?? '')}" ${editable && l.discount_type !== 'none' ? '' : 'disabled'}></div>
+          </div>
+          <div class="qline-foot">
+            <div>${lineTypeBadge(cl)}<div class="hint" style="margin:4px 0 0">${esc(cl ? cl.detail : '')}</div></div>
+            <div class="qline-price">${cl ? money(cl.net) : '—'}${cl && cl.discount_amount ? `<small>was ${money(cl.gross)}</small>` : ''}</div>
+          </div>
+          ${editable ? `<div class="override"><label class="inline-check"><input type="checkbox" data-i="${i}" data-k="override_on" ${l.price_override !== null && l.price_override !== undefined && l.price_override !== '' ? 'checked' : ''}> Set the price myself</label>
+            ${l.price_override !== null && l.price_override !== undefined && l.price_override !== '' ? `<input type="number" inputmode="decimal" min="0" step="0.01" data-i="${i}" data-k="price_override" value="${l.price_override}" aria-label="Price" style="max-width:160px;margin-top:6px"><span class="hint"> ${s.price_period === 'monthly' ? 'per month' : ''}</span>` : ''}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+    $('lines').addEventListener('input', (e) => {
+      const i = e.target.dataset.i, k = e.target.dataset.k; if (i === undefined) return;
+      const l = lines[i];
+      if (k === 'is_earlier_year') { l.is_earlier_year = e.target.checked; dirty = true; renderLines(); recalc(); return; }
+      if (k === 'override_on') { l.price_override = e.target.checked ? (calc && calc.lines[i] ? calc.lines[i].unit_price : 0) : null; dirty = true; renderLines(); recalc(); return; }
+      if (k === 'discount_type') { l.discount_type = e.target.value; if (l.discount_type === 'none') l.discount_value = 0; dirty = true; renderLines(); recalc(); return; }
+      if (k === 'period_label') { l.period_label = e.target.value; dirty = true; return; }
+      l[k] = e.target.value === '' ? null : Number(e.target.value);
+      dirty = true; recalc(true);
+    });
+    $('lines').addEventListener('click', (e) => {
+      const d = e.target.dataset.del; if (d === undefined) return;
+      lines.splice(Number(d), 1); dirty = true; renderLines(); renderOutstanding(); recalc();
+    });
+
+    // picker
+    function openPicker() { $('pk-q').value = ''; renderPicker(); $('pk-backdrop').classList.add('open'); $('pk-sheet').classList.add('open'); }
+    function closePicker() { $('pk-backdrop').classList.remove('open'); $('pk-sheet').classList.remove('open'); }
+    function renderPicker() {
+      const term = $('pk-q').value.trim().toLowerCase();
+      const ct = client ? client.client_type : null;
+      const avail = services.filter(s => s.is_active && (!ct || s.client_type === 'both' || s.client_type === ct || (ct === 'landlord' && s.client_type === 'sole_trader')) && (!term || s.name.toLowerCase().includes(term)));
+      const grp = [['ongoing', 'Ongoing'], ['catch_up', 'One-off']];
+      $('pk-list').innerHTML = grp.map(([k, t]) => {
+        const it = avail.filter(s => s.service_kind === k); if (!it.length) return '';
+        return `<div class="group-title">${t}</div>` + it.map(s => {
+          const r = P.calcPrice(s, s.pricing_type === 'fixed' ? 0 : (s.included_units || 1));
+          const price = s.pricing_type === 'fixed' ? money(s.default_price) + P.periodSuffix(s) : (s.pricing_type === 'income_based' ? 'from ' + money(s.base_fee) : (r.price !== null ? 'from ' + money(r.price) + P.periodSuffix(s) : ''));
+          return `<div class="svc ${s.service_kind}" data-sid="${s.id}" tabindex="0" role="button"><div class="svc-main"><div class="svc-name">${esc(s.name)}</div>${s.description ? `<div class="svc-meta">${esc(s.description)}</div>` : ''}</div><div class="svc-price" style="font-size:.95rem">${esc(price)}</div></div>`;
+        }).join('');
+      }).join('') || '<p class="empty">No services match.</p>';
+    }
+    $('pk-q').oninput = renderPicker;
+    $('pk-close').onclick = closePicker; $('pk-backdrop').onclick = closePicker;
+    $('pk-list').onclick = (e) => {
+      const it = e.target.closest('[data-sid]'); if (!it) return;
+      const s = svcById(it.dataset.sid);
+      lines.push({ service_id: s.id, service: s, quantity: null, price_override: null, discount_type: 'none', discount_value: 0, is_earlier_year: false, months: s.price_period === 'monthly' ? 12 : null, period_label: '' });
+      dirty = true; closePicker(); renderLines(); recalc();
+      setTimeout(() => { const q = document.getElementById('ln-q-' + (lines.length - 1)); if (q) q.focus(); }, 60);
+    };
+    $('add-line').onclick = openPicker;
+
+    // whole-quote discount, late start, message
+    $('qd-type').onchange = () => { quote.discount_type = $('qd-type').value; if (quote.discount_type === 'none') { quote.discount_value = 0; $('qd-value').value = ''; } $('qd-value').disabled = quote.discount_type === 'none' || !editable; dirty = true; recalc(); };
+    $('qd-value').oninput = () => { quote.discount_value = Number($('qd-value').value || 0); dirty = true; recalc(true); };
+    $('qd-reason').oninput = () => { quote.discount_reason = $('qd-reason').value; dirty = true; };
+    $('late-mode').onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b || !editable) return; quote.late_start_mode = b.dataset.v; if (b.dataset.v === 'instalments' && !quote.payments_count) quote.payments_count = 3; dirty = true; recalc(); };
+    $('late-n').oninput = () => { quote.payments_count = Number($('late-n').value || 0) || null; dirty = true; recalc(true); };
+    $('message').oninput = () => { quote.message_to_client = $('message').value; dirty = true; };
+
+    // ---------- calculate + summary ----------
+    function recalc(keepLines) {
+      calc = Q.compute(quote, lines, settings);
+      if (!keepLines) renderLines(); else {
+        // update just the prices/badges without re-rendering inputs (keeps focus)
+        calc.lines.forEach((cl, i) => {
+          const card = document.querySelector(`.qline[data-i="${i}"]`); if (!card) return;
+          card.querySelector('.qline-price').innerHTML = `${money(cl.net)}${cl.discount_amount ? `<small>was ${money(cl.gross)}</small>` : ''}`;
+          card.querySelector('.qline-foot > div').innerHTML = `${lineTypeBadge(cl)}<div class="hint" style="margin:4px 0 0">${esc(cl.detail)}</div>`;
+        });
+      }
+      const s = calc.schedule;
+      $('period-hint').textContent = quote.year_end_date
+        ? `${client && client.client_type !== 'ltd' ? 'Tax year ' + Q.taxYearLabel(quote.year_end_date) + ' · ' : ''}${s.payments_left ? s.payments_left + ' monthly payment' + (s.payments_left === 1 ? '' : 's') + ' left before the year end' : 'Ongoing services are paid monthly to this date'}`
+        : 'Choose a client to set the year end, or enter it.';
+      // late start
+      const showLate = calc.totals.ongoing_total > 0 && s.late_start;
+      $('sec-late').style.display = showLate ? '' : 'none';
+      if (showLate) {
+        $('late-text').textContent = `Only ${s.payments_left} payment${s.payments_left === 1 ? '' : 's'} left before the year end. By default the ongoing services (${money(calc.totals.ongoing_total)}) are paid in one go. You can offer instalments instead.`;
+        document.querySelectorAll('#late-mode [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === (quote.late_start_mode || 'single_payment')));
+        $('late-n-wrap').style.display = quote.late_start_mode === 'instalments' ? '' : 'none';
+        if (document.activeElement !== $('late-n')) $('late-n').value = quote.payments_count || '';
+      }
+      renderSummary();
+    }
+
+    function renderSummary() {
+      const t = calc.totals, s = calc.schedule, o = calc.options;
+      const errs = [...calc.errors];
+      if (!client) errs.unshift('Choose a client.');
+      if (!lines.length) errs.push('Add at least one service.');
+      $('summary').innerHTML = `
+        <h2>Summary</h2>
+        <dl class="kv sum-kv">
+          <dt>Services</dt><dd>${money(t.subtotal)}</dd>
+          ${t.discount_total ? `<dt>Discounts</dt><dd>− ${money(t.discount_total)}</dd>` : ''}
+          <dt><b>Total</b></dt><dd><b>${money(t.total)}</b></dd>
+        </dl>
+        <div class="pay-opts">
+          <div class="pay-opt"><b>Pay in full</b><span>${money(o.one_off.due_now)} on acceptance</span></div>
+          ${o.monthly ? `<div class="pay-opt"><b>Pay monthly</b><span>${money(o.monthly.due_now)} on acceptance, then ${esc(o.monthly.then)} (last ${esc(fd(s.last_payment_date))})</span></div>`
+            : (t.ongoing_total > 0 ? '<div class="pay-opt muted"><b>Monthly</b><span>Not available for this quote</span></div>' : '')}
+          ${t.balance_later ? `<div class="pay-opt"><b>Later</b><span>${money(t.balance_later)} balance before submission to HMRC</span></div>` : ''}
+        </div>
+        ${errs.length ? `<ul class="problems">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;
+      renderActions(errs.length === 0);
+    }
+
+    // ---------- save / send ----------
+    function payload() {
+      const t = calc.totals, s = calc.schedule;
+      return {
+        client_id: client ? client.id : null,
+        start_date: quote.start_date || Q.todayISO(),
+        year_end_date: quote.year_end_date,
+        tax_year: quote.year_end_date ? (client && client.client_type !== 'ltd' ? Q.taxYearLabel(quote.year_end_date) : 'Year ending ' + fd(quote.year_end_date)) : null,
+        discount_type: quote.discount_type || 'none', discount_value: Number(quote.discount_value || 0), discount_reason: quote.discount_reason || null,
+        subtotal: t.subtotal, discount_total: t.discount_total, total: t.total,
+        one_off_total: t.one_off_total, ongoing_total: t.ongoing_total, one_off_due_now: t.one_off_due_now, balance_later: t.balance_later,
+        late_start: s.late_start, late_start_mode: s.late_start ? (quote.late_start_mode || 'single_payment') : null,
+        payments_count: s.monthly_allowed ? s.payments_count : null, monthly_amount: s.monthly_allowed ? s.monthly_amount : null,
+        monthly_allowed: s.monthly_allowed, first_payment_date: s.first_payment_date, last_payment_date: s.last_payment_date,
+        message_to_client: quote.message_to_client || null,
+      };
+    }
+    async function save() {
+      if (!client) throw new Error('Choose a client.');
+      if (!lines.length) throw new Error('Add at least one service.');
+      if (calc.errors.length) throw new Error(calc.errors[0]);
+      const row = payload();
+      if (quote.id) {
+        const { error } = await A4T.sb.from('qs_quotes').update(row).eq('id', quote.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await A4T.sb.from('qs_quotes').insert(row).select('*').single();
+        if (error) throw error;
+        quote = { ...quote, ...data };
+        history.replaceState(null, '', 'quote.html?id=' + quote.id);
+      }
+      const { error: de } = await A4T.sb.from('qs_quote_lines').delete().eq('quote_id', quote.id);
+      if (de) throw de;
+      const rows = calc.lines.map((cl, i) => ({
+        quote_id: quote.id, service_id: cl.service_id || null, description: cl.service.name,
+        pricing_type: cl.service.pricing_type, service_kind: cl.kind === 'ongoing' ? 'ongoing' : 'catch_up',
+        quantity: cl.quantity === null || cl.quantity === undefined || cl.quantity === '' ? null : Number(cl.quantity),
+        unit_label: cl.service.unit_label || null, unit_price: cl.unit_price, price: cl.gross, price_period: cl.service.price_period || null,
+        months: cl.months, is_earlier_year: !!cl.is_earlier_year, period_label: cl.period_label || null,
+        price_override: cl.price_override !== null && cl.price_override !== undefined && cl.price_override !== '',
+        discount_type: cl.discount_type || 'none', discount_value: Number(cl.discount_value || 0),
+        discount_amount: cl.discount_amount, quote_discount_amount: cl.quote_discount, gross_amount: cl.gross, line_total: cl.net,
+        charge_kind: cl.kind, payment_structure: cl.kind === 'deposit_balance' ? 'deposit_balance' : 'standard',
+        deposit_amount: cl.kind === 'deposit_balance' ? cl.deposit : null, balance_amount: cl.kind === 'deposit_balance' ? cl.balance : null,
+        loe_schedule_key: cl.service.loe_schedule_key || null, calc_detail: cl.detail, sort_order: i,
+      }));
+      const { error: ie } = await A4T.sb.from('qs_quote_lines').insert(rows);
+      if (ie) throw ie;
+      dirty = false;
+    }
+
+    function previewUrl() { return `q.html?t=${quote.access_token}&preview=1`; }
+
+    function renderActions(valid) {
+      const a = $('actions');
+      if (editable) {
+        a.innerHTML = `<button type="button" class="btn btn-ghost" id="b-save">Save draft</button>
+          <button type="button" class="btn btn-ghost" id="b-preview" ${valid ? '' : 'disabled'}>Preview</button>
+          <button type="button" class="btn btn-teal" id="b-send" ${valid ? '' : 'disabled'}>Send to client</button>`;
+        $('b-save').onclick = () => run($('b-save'), 'Saving…', async () => { await save(); A4T.toast('Draft saved'); header(); });
+        $('b-preview').onclick = () => run($('b-preview'), 'Saving…', async () => { await save(); header(); window.open(previewUrl(), '_blank'); });
+        $('b-send').onclick = () => run($('b-send'), 'Sending…', async () => {
+          if (!confirm(`Send quote to ${client.email}?`)) return;
+          await save(); await sendQuote();
+        });
+      } else {
+        const canEdit = ['sent', 'viewed', 'expired', 'declined'].includes(quote.status);
+        a.innerHTML = `<a class="btn btn-ghost" href="${previewUrl()}" target="_blank" rel="noopener">View as client</a>
+          ${['sent', 'viewed'].includes(quote.status) ? '<button type="button" class="btn btn-ghost" id="b-resend">Resend email</button>' : ''}
+          ${canEdit ? '<button type="button" class="btn btn-teal" id="b-edit">Edit (new version)</button>' : ''}`;
+        if ($('b-resend')) $('b-resend').onclick = () => run($('b-resend'), 'Sending…', async () => { if (!confirm(`Resend quote to ${client.email}?`)) return; await sendQuote(); });
+        if ($('b-edit')) $('b-edit').onclick = () => run($('b-edit'), 'Opening…', async () => {
+          const { error } = await A4T.sb.from('qs_quotes').update({ status: 'draft', version: (quote.version || 1) + 1 }).eq('id', quote.id);
+          if (error) throw error;
+          quote.status = 'draft'; quote.version = (quote.version || 1) + 1; setEditable(); header(); A4T.toast('Editing version ' + quote.version + '. Send it again when ready.');
+        });
+      }
+    }
+    async function sendQuote() {
+      const res = await A4T.sb.functions.invoke('quote-send', { body: { quote_id: quote.id } });
+      if (res.error) { let m = res.error.message; try { const b = await res.error.context.json(); if (b.error) m = b.error.message; } catch (_) {} throw new Error(m); }
+      const { data } = await A4T.sb.from('qs_quotes').select('*').eq('id', quote.id).single();
+      quote = data; setEditable(); header(); A4T.toast('Quote sent to ' + client.email);
+    }
+    async function run(btn, busy, fn) {
+      const txt = btn.textContent; btn.disabled = true; btn.textContent = busy; showErr('');
+      try { await fn(); } catch (e) { showErr(e.message || String(e)); } finally { if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = txt; } }
+    }
+
+    function header() {
+      $('title').textContent = quote.quote_number ? `Quote ${quote.quote_number}` : 'New quote';
+      $('subtitle').textContent = quote.quote_number ? `${STATUS_TXT[quote.status] || quote.status} · version ${quote.version}${quote.sent_at ? ' · sent ' + fd(quote.sent_at) : ''}${quote.expires_at ? ' · valid until ' + fd(quote.expires_at) : ''}` : '';
+      $('banner').innerHTML = !editable ? `<div class="alert alert-ok show">This quote is <b>${esc(STATUS_TXT[quote.status] || quote.status)}</b>, so it is locked. ${['sent', 'viewed', 'expired', 'declined'].includes(quote.status) ? 'Use “Edit (new version)” to change it; the client’s link stays the same.' : ''}</div>` : '';
+    }
+    function setEditable() {
+      editable = quote.status === 'draft';
+      document.querySelectorAll('#sec-period input, #sec-discount input, #sec-discount select, #message, #late-n').forEach(el => el.disabled = !editable);
+      $('qd-value').disabled = !editable || quote.discount_type === 'none';
+      $('add-line').style.display = editable ? '' : 'none';
+      renderClient(); renderLines(); recalc();
+    }
+
+    // ---------- start ----------
+    $('start').value = quote.start_date || Q.todayISO();
+    if (!quote.year_end_date) quote.year_end_date = defaultYearEnd();
+    $('ye').value = quote.year_end_date || '';
+    $('qd-type').value = quote.discount_type || 'none';
+    $('qd-value').value = quote.discount_type && quote.discount_type !== 'none' ? quote.discount_value : '';
+    $('qd-reason').value = quote.discount_reason || '';
+    $('message').value = quote.message_to_client || '';
+    setEditable(); header();
+    window.addEventListener('beforeunload', (e) => { if (dirty && editable) { e.preventDefault(); e.returnValue = ''; } });
+  })();
+  </script>
+</body>
+</html>

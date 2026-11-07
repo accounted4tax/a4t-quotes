@@ -31,5 +31,27 @@
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  window.A4T = { sb, requireAdmin, signOut, money, esc };
+  // Shared bottom/top navigation. Put <nav class="bottom-nav" id="nav"></nav> in the page.
+  function nav(active) {
+    const items = [['dashboard', 'dashboard.html', '▦', 'Dashboard'], ['quotes', 'quotes.html', '✎', 'Quotes'],
+      ['clients', 'clients.html', '☺', 'Clients'], ['services', 'services.html', '£', 'Services'], ['settings', '#', '⚙', 'Settings']];
+    const el = document.getElementById('nav'); if (!el) return;
+    el.setAttribute('aria-label', 'Main');
+    el.innerHTML = items.map(([k, href, ic, label]) =>
+      `<a href="${href}" class="${k === active ? 'active' : ''} ${href === '#' ? 'soon' : ''}"><span class="ic">${ic}</span>${label}</a>`).join('');
+  }
+
+  function toast(t) {
+    let el = document.getElementById('toast');
+    if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+    el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2400);
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const s = String(d); const dt = new Date(s.length === 10 ? s + 'T00:00:00' : s);
+    return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  window.A4T = { sb, requireAdmin, signOut, money, esc, nav, toast, fmtDate };
 })();

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=8">
+  <link rel="stylesheet" href="assets/css/app.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -19,13 +19,7 @@
     <button id="signout" class="btn btn-ghost" type="button">Sign out</button>
   </header>
 
-  <nav class="bottom-nav" aria-label="Main">
-    <a href="dashboard.html" class="active"><span class="ic">▦</span>Dashboard</a>
-    <a class="soon" href="#"><span class="ic">✎</span>Quotes</a>
-    <a class="soon" href="#"><span class="ic">☺</span>Clients</a>
-    <a href="services.html"><span class="ic">£</span>Services</a>
-    <a class="soon" href="#"><span class="ic">⚙</span>Settings</a>
-  </nav>
+  <nav class="bottom-nav" id="nav"></nav>
 
   <main>
     <div class="page-head">
@@ -35,6 +29,7 @@
 
     <div id="err" class="alert alert-error" role="alert"></div>
 
+    <div class="toolbar"><a class="btn btn-gold" href="quote.html">+ New quote</a><a class="btn btn-ghost" href="clients.html">Clients</a></div>
     <section class="card">
       <h2>Quotes</h2>
       <div id="stats" class="stat-grid"></div>
@@ -59,14 +54,15 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=8"></script>
-  <script src="assets/js/app.js?v=8"></script>
+  <script src="assets/js/config.js?v=6"></script>
+  <script src="assets/js/app.js?v=6"></script>
   <script>
     (async function () {
       const session = await A4T.requireAdmin();
       if (!session) return;
 
       document.getElementById('signout').onclick = A4T.signOut;
+      A4T.nav('dashboard');
       document.getElementById('ver').textContent = A4T_CONFIG.APP_VERSION;
       const h = new Date().getHours();
       document.getElementById('greeting').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', Eduard';
@@ -97,12 +93,12 @@
       const counts = Object.fromEntries(statuses.map(s => [s, 0]));
       (quotes || []).forEach(q => { counts[q.status] = (counts[q.status] || 0) + 1; });
       document.getElementById('stats').innerHTML = statuses.map(s =>
-        `<div class="stat s-${s}"><div class="n">${counts[s]}</div><div class="l">${s}</div></div>`).join('');
+        `<a class="stat s-${s}" href="quotes.html?f=${{draft:'draft',sent:'open',viewed:'open',accepted:'won',paid:'won',expired:'lost',declined:'lost'}[s]}" style="text-decoration:none;color:inherit"><div class="n">${counts[s]}</div><div class="l">${s}</div></a>`).join('');
 
       checks.push(`<li id="ch-row"><span class="dot todo" id="ch-dot"></span><span style="flex:1"><span id="ch-text">Companies House lookup</span></span><button type="button" class="btn btn-ghost btn-sm" id="ch-test">Test</button></li>`);
       addCheck('ok', 'Services & pricing catalogue (Phase 3)');
       checks.push(`<li><span class="dot todo" id="em-dot"></span><span style="flex:1" id="em-text">Email sending (Brevo)</span><button type="button" class="btn btn-ghost btn-sm" id="em-test">Send test email</button></li>`);
-      addCheck('todo', 'Quote builder (Phase 4)');
+      addCheck('ok', 'Quote builder, client quote page and quote emails (Phase 4)');
       document.getElementById('checks').innerHTML = checks.join('');
 
       // ---------- Company lookup (type-ahead) ----------
