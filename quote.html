@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=7">
+  <link rel="stylesheet" href="assets/css/app.css?v=8">
 </head>
 <body>
   <header class="topbar">
@@ -101,11 +101,11 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=7"></script>
-  <script src="assets/js/app.js?v=7"></script>
-  <script src="assets/js/pricing.js?v=7"></script>
-  <script src="assets/js/quote-calc.js?v=7"></script>
-  <script src="assets/js/client-form.js?v=7"></script>
+  <script src="assets/js/config.js?v=8"></script>
+  <script src="assets/js/app.js?v=8"></script>
+  <script src="assets/js/pricing.js?v=8"></script>
+  <script src="assets/js/quote-calc.js?v=8"></script>
+  <script src="assets/js/client-form.js?v=8"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -418,18 +418,22 @@
       if (editable) {
         a.innerHTML = `<button type="button" class="btn btn-ghost" id="b-save">Save draft</button>
           <button type="button" class="btn btn-ghost" id="b-preview" ${valid ? '' : 'disabled'}>Preview</button>
+          <button type="button" class="btn btn-ghost" id="b-pdf" ${valid ? '' : 'disabled'}>PDF</button>
           <button type="button" class="btn btn-teal" id="b-send" ${valid ? '' : 'disabled'}>Send to client</button>`;
         $('b-save').onclick = () => run($('b-save'), 'Saving…', async () => { await save(); A4T.toast('Draft saved'); header(); });
         $('b-preview').onclick = () => run($('b-preview'), 'Saving…', async () => { await save(); header(); window.open(previewUrl(), '_blank'); });
+        $('b-pdf').onclick = () => run($('b-pdf'), 'Building…', async () => { await save(); header(); await downloadPdf(); });
         $('b-send').onclick = () => run($('b-send'), 'Sending…', async () => {
-          if (!confirm(`Send quote to ${client.email}?`)) return;
+          if (!confirm(`Email quote to ${client.email}? The quote PDF is attached.`)) return;
           await save(); await sendQuote();
         });
       } else {
         const canEdit = ['sent', 'viewed', 'expired', 'declined'].includes(quote.status);
         a.innerHTML = `<a class="btn btn-ghost" href="${previewUrl()}" target="_blank" rel="noopener">View as client</a>
+          <button type="button" class="btn btn-ghost" id="b-pdf">PDF</button>
           ${['sent', 'viewed'].includes(quote.status) ? '<button type="button" class="btn btn-ghost" id="b-resend">Resend email</button>' : ''}
           ${canEdit ? '<button type="button" class="btn btn-teal" id="b-edit">Edit (new version)</button>' : ''}`;
+        $('b-pdf').onclick = () => run($('b-pdf'), 'Building…', downloadPdf);
         if ($('b-resend')) $('b-resend').onclick = () => run($('b-resend'), 'Sending…', async () => { if (!confirm(`Resend quote to ${client.email}?`)) return; await sendQuote(); });
         if ($('b-edit')) $('b-edit').onclick = () => run($('b-edit'), 'Opening…', async () => {
           const { error } = await A4T.sb.from('qs_quotes').update({ status: 'draft', version: (quote.version || 1) + 1 }).eq('id', quote.id);
@@ -437,6 +441,16 @@
           quote.status = 'draft'; quote.version = (quote.version || 1) + 1; setEditable(); header(); A4T.toast('Editing version ' + quote.version + '. Send it again when ready.');
         });
       }
+    }
+    // The same PDF that is attached to the client's email
+    async function downloadPdf() {
+      const res = await A4T.sb.functions.invoke('quote-send', { body: { quote_id: quote.id, pdf_only: true } });
+      if (res.error) { let m = res.error.message; try { const b = await res.error.context.json(); if (b.error) m = b.error.message; } catch (_) {} throw new Error(m); }
+      const bin = atob(res.data.pdf), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const a = document.createElement('a'); a.href = url; a.download = res.data.name || 'quote.pdf';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
     async function sendQuote() {
       const res = await A4T.sb.functions.invoke('quote-send', { body: { quote_id: quote.id } });

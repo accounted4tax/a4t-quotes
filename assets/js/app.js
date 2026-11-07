@@ -39,6 +39,9 @@
     el.setAttribute('aria-label', 'Main');
     el.innerHTML = items.map(([k, href, ic, label]) =>
       `<a href="${href}" class="${k === active ? 'active' : ''} ${href === '#' ? 'soon' : ''}"><span class="ic">${ic}</span>${label}</a>`).join('');
+    // Link to the Practice Manager (same login) next to "Sign out"
+    const pm = (window.A4T_CONFIG || {}).PRACTICE_MANAGER_URL, so = document.getElementById('signout');
+    if (pm && so && !document.getElementById('pm-link')) so.insertAdjacentHTML('beforebegin', `<a id="pm-link" class="btn btn-ghost" href="${pm}" title="Open the Practice Manager">Practice Manager ↗</a>`);
   }
 
   function toast(t) {

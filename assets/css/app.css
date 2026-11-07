@@ -248,3 +248,7 @@ input[type=checkbox].tgl { width: 22px; height: 22px; accent-color: var(--teal);
   .qb-actions { grid-template-columns: auto auto 1fr; }
   .qb-actions .btn-teal { grid-column: auto; }
 }
+
+/* Link to the Practice Manager in the top bar */
+#pm-link { margin-left: auto; margin-right: 6px; font-size: .85rem; white-space: nowrap; }
+@media (max-width: 420px) { #pm-link { padding-left: 10px; padding-right: 10px; } }

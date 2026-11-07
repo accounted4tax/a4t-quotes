@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=7">
+  <link rel="stylesheet" href="assets/css/app.css?v=8">
   <style>
     body { background: #E9ECF2; }
     .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
@@ -73,7 +73,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=7"></script>
+  <script src="assets/js/config.js?v=8"></script>
   <script>
   (async function () {
     const cfg = window.A4T_CONFIG;
@@ -121,11 +121,27 @@
     const sum = (arr, f) => r2(arr.reduce((a, x) => a + Number(f(x) || 0), 0));
     const perMonth = (l) => l.months ? r2(Number(l.total) / l.months) : Number(l.total);
 
+    // Which year the work is for (same rules as the PDF): catch-up from the period labels, year-end from the year end
+    const periodDate = (t) => { const m = String(t || '').match(/year (?:ended|ending)\s+(.+)$/i); return m ? m[1].trim() : null; };
+    const andList = (a) => a.length < 2 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+    function catchHead(lines) {
+      const dates = [...new Set(lines.map(l => periodDate(l.period_label)).filter(Boolean))];
+      if (!dates.length) return { suffix: '', hide: false };
+      return { suffix: dates.length === 1 ? ` – for the year ended ${dates[0]}` : ` – for the years ended ${andList(dates)}`,
+        hide: dates.length === 1 && lines.every(l => !l.period_label || periodDate(l.period_label) === dates[0]) };
+    }
+    function yeHead() {
+      if (!q.year_end_date) return '';
+      if (c.client_type === 'ltd') return ` – for the year ending ${fd(q.year_end_date)}`;
+      const y = Number(String(q.year_end_date).slice(0, 4));
+      return ` – for the tax year ${y - 1}/${String(y).slice(-2)} (to ${fd(q.year_end_date)})`;
+    }
+    let hidePeriod = false;
     const label = (l) => {
       let t = esc(l.description) + (l.is_earlier_year ? ' catch-up' : '');
       if (l.about) t += ` – ${esc(l.about)}`;
       const extra = [];
-      if (l.period_label) extra.push(l.period_label);
+      if (l.period_label && !(hidePeriod && l.kind === 'one_off' && periodDate(l.period_label))) extra.push(l.period_label);
       if (l.pricing_type === 'income_based' && l.quantity !== null) extra.push('based on estimated income of ' + money(l.quantity));
       else if (l.pricing_type !== 'fixed' && l.quantity !== null) extra.push(`${Number(l.quantity)} ${l.unit_label || ''}`.trim());
       if (l.price_period === 'monthly' && l.kind !== 'ongoing' && l.months) extra.push(`${l.months} × ${money(l.unit_price)}`);
@@ -155,7 +171,8 @@
       </div>`;
 
     if (G.catch_up.length) {
-      html += `<section class="sec"><h2>${++k}. Catch-up work (one-off)</h2>
+      const ch = catchHead(G.catch_up); hidePeriod = ch.hide;
+      html += `<section class="sec"><h2>${++k}. Catch-up work (one-off)${esc(ch.suffix)}</h2>
         ${G.catch_up.map(l => row(l, l.total, l.gross)).join('')}
         ${tot('Total catch-up work (paid once)', money(catchTotal))}</section>`;
     }
@@ -166,7 +183,7 @@
         ${Number(q.balance_later) ? tot('Balance before submission', money(q.balance_later)) : ''}</section>`;
     }
     if (G.year_end.length) {
-      html += `<section class="sec"><h2>${++k}. Year-end services</h2>
+      html += `<section class="sec"><h2>${++k}. Year-end services${esc(yeHead())}</h2>
         ${G.year_end.map(l => row(l, l.total, l.gross)).join('')}
         ${tot('Total year-end services', money(yeTotal))}
         ${n ? tot(`Spread over ${n} month${n === 1 ? '' : 's'}`, money(yePm) + ' a month') : ''}</section>`;
