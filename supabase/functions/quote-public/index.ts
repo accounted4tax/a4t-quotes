@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (!/^[a-f0-9]{64}$/.test(String(token || ''))) return fail(404, 'not_found', 'This quote link is not valid.');
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
-  const { data: q } = await db.from('qs_quotes').select('*, client:qs_clients(full_name,company_name,trading_name,client_type,crn)').eq('access_token', token).maybeSingle();
+  const { data: q } = await db.from('qs_quotes').select('*, client:clients(full_name,company_name,trading_name,client_type,crn)').eq('access_token', token).maybeSingle();
   if (!q) return fail(404, 'not_found', 'This quote link is not valid.');
   if (q.status === 'draft' && !preview) return fail(409, 'being_updated', 'This quote is being updated. We will email you when it is ready.');
 
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
   ]);
   const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
   const ids = (lines || []).map((l: any) => l.service_id).filter(Boolean);
-  const { data: svc } = ids.length ? await db.from('qs_services_catalogue').select('id,description').in('id', ids) : { data: [] };
+  const { data: svc } = ids.length ? await db.from('services_catalogue').select('id,description').in('id', ids) : { data: [] };
   const descr = Object.fromEntries((svc || []).map((s: any) => [s.id, s.description]));
 
   const p = S.practice || {};

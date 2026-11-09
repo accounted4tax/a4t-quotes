@@ -9,7 +9,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { buildQuotePdf } from './quote-doc.ts';
 
 // Table names in one place: these become the Practice Manager's clients / services_catalogue when the lists are merged.
-const CLIENTS = 'qs_clients', SERVICES = 'qs_services_catalogue';
+const CLIENTS = 'clients', SERVICES = 'services_catalogue';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });

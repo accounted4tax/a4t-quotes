@@ -54,7 +54,7 @@
 
     async function load() {
       const [{ data: c, error: e1 }, { data: q }] = await Promise.all([
-        A4T.sb.from('qs_clients').select('*').order('created_at', { ascending: false }),
+        A4T.sb.from('clients').select('*').order('created_at', { ascending: false }),
         A4T.sb.from('qs_quotes').select('client_id,status'),
       ]);
       if (e1) { $('err').textContent = 'Could not load clients: ' + e1.message; $('err').classList.add('show'); return; }

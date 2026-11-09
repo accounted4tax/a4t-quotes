@@ -202,10 +202,10 @@
     try {
       let saved;
       if (state.id) {
-        const { data, error } = await A4T.sb.from('qs_clients').update(row).eq('id', state.id).select('*').single();
+        const { data, error } = await A4T.sb.from('clients').update(row).eq('id', state.id).select('*').single();
         if (error) throw error; saved = data;
       } else {
-        const { data, error } = await A4T.sb.from('qs_clients').insert(row).select('*').single();
+        const { data, error } = await A4T.sb.from('clients').insert(row).select('*').single();
         if (error) throw error; saved = data;
       }
       close();

@@ -44,7 +44,7 @@
     const GROUP = { draft: ['draft'], open: ['sent', 'viewed'], won: ['accepted', 'paid'], lost: ['expired', 'declined'] };
     const TXT = { draft: 'Draft', sent: 'Sent', viewed: 'Viewed', accepted: 'Accepted', paid: 'Paid', expired: 'Expired', declined: 'Declined' };
     let quotes = [], filter = new URLSearchParams(location.search).get('f') || 'all';
-    const { data, error } = await A4T.sb.from('qs_quotes').select('id,quote_number,status,version,total,monthly_amount,payments_count,created_at,sent_at,expires_at,client:qs_clients(full_name,company_name,client_type)').order('created_at', { ascending: false });
+    const { data, error } = await A4T.sb.from('qs_quotes').select('id,quote_number,status,version,total,monthly_amount,payments_count,created_at,sent_at,expires_at,client:clients(full_name,company_name,client_type)').order('created_at', { ascending: false });
     if (error) { $('err').textContent = 'Could not load quotes: ' + error.message; $('err').classList.add('show'); return; }
     quotes = data;
     function render() {

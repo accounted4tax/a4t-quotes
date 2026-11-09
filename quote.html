@@ -125,10 +125,10 @@
 
     // ---------- load ----------
     const [{ data: svc }, { data: bands }, { data: st }, { data: cl }] = await Promise.all([
-      A4T.sb.from('qs_services_catalogue').select('*').order('sort_order').order('name'),
+      A4T.sb.from('services_catalogue').select('*').order('sort_order').order('name'),
       A4T.sb.from('qs_service_price_bands').select('*'),
       A4T.sb.from('qs_settings').select('key,value'),
-      A4T.sb.from('qs_clients').select('*').order('full_name'),
+      A4T.sb.from('clients').select('*').order('full_name'),
     ]);
     services = (svc || []).map(s => ({ ...s, bands: (bands || []).filter(b => b.service_id === s.id) }));
     settings = Object.fromEntries((st || []).map(x => [x.key, x.value]));

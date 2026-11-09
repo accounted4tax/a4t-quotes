@@ -232,7 +232,7 @@
     // ---------- Load + list ----------
     async function load() {
       const [{ data: svc, error: e1 }, { data: bnd, error: e2 }] = await Promise.all([
-        A4T.sb.from('qs_services_catalogue').select('*').order('sort_order').order('name'),
+        A4T.sb.from('services_catalogue').select('*').order('sort_order').order('name'),
         A4T.sb.from('qs_service_price_bands').select('*').order('sort_order').order('min_qty'),
       ]);
       if (e1 || e2) { showErr('err', 'Could not load services: ' + (e1 || e2).message); return; }
@@ -510,10 +510,10 @@
       try {
         let id = editing.id;
         if (id) {
-          const { error } = await A4T.sb.from('qs_services_catalogue').update(row).eq('id', id);
+          const { error } = await A4T.sb.from('services_catalogue').update(row).eq('id', id);
           if (error) throw error;
         } else {
-          const { data, error } = await A4T.sb.from('qs_services_catalogue').insert(row).select('id').single();
+          const { data, error } = await A4T.sb.from('services_catalogue').insert(row).select('id').single();
           if (error) throw error;
           id = data.id;
         }

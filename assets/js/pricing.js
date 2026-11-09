@@ -1,7 +1,7 @@
 // A4T Quotes - pricing engine. One place that turns a service + quantity into a price.
 // Used by the Services page (price check) and later by the Quote builder.
 //
-// service: a qs_services_catalogue row, plus `bands` = qs_service_price_bands rows
+// service: a services_catalogue row (Practice Manager), plus `bands` = qs_service_price_bands rows
 // qty:     transactions / employees / subcontractors (ignored for fixed)
 // Returns { price, detail } or { price: null, error }
 (function (root) {
