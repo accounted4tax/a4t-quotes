@@ -40,11 +40,13 @@
     const size = Number(service.unit_size || 1) > 0 ? Number(service.unit_size || 1) : 1;
     const included = Math.max(0, Number(service.included_units || 0));
     // Income: every started step counts (£1–£10,000 = 1, £10,001–£20,000 = 2). Head counts: whole units.
-    const units = type === 'income_based' ? Math.ceil(q / size) : Math.floor(q / size);
+    // Batches (unit size > 1, e.g. £30 per batch of up to 50 transactions): every started batch counts too.
+    const units = (type === 'income_based' || size > 1) ? Math.ceil(q / size) : Math.floor(q / size);
     const charged = Math.max(0, units - included);  // e.g. 8 employees, 5 included = 3 charged
     const money = (n) => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let detail;
     if (type === 'income_based') detail = `${money(base)} base + ${charged} × ${money(rate)} (each £${size.toLocaleString('en-GB')} or part of income)`;
+    else if (size > 1) detail = `${units} batch${units === 1 ? '' : 'es'} of up to ${size.toLocaleString('en-GB')} ${unit} × ${money(rate)}${included ? ` (${included} included)` : ''}`;
     else if (included) detail = `${money(base)} covers up to ${included}; ${charged} extra × ${money(rate)}`;
     else detail = `${money(base)} base + ${charged} × ${money(rate)}`;
     return { price: round2(base + rate * charged), detail };

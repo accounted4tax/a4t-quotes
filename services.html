@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=9">
+  <link rel="stylesheet" href="assets/css/app.css?v=10">
 </head>
 <body>
   <header class="topbar">
@@ -202,9 +202,9 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=9"></script>
-  <script src="assets/js/app.js?v=9"></script>
-  <script src="assets/js/pricing.js?v=9"></script>
+  <script src="assets/js/config.js?v=10"></script>
+  <script src="assets/js/app.js?v=10"></script>
+  <script src="assets/js/pricing.js?v=10"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -255,6 +255,7 @@
         const size = Number(s.unit_size || 10000);
         return 'from ' + money(base) + `<small>+ ${money(rate)} per £${(size / 1000).toLocaleString('en-GB')}k income${suf}</small>`;
       }
+      if (Number(s.unit_size) > 1) return money(rate) + `<small>per batch of up to ${Number(s.unit_size)} ${esc(s.unit_label || '')}${suf}</small>`;
       if (Number(s.included_units)) return money(base) + `<small>up to ${s.included_units}, then ${money(rate)} each${suf}</small>`;
       return (base ? money(base) + ' + ' : '') + money(rate) + `<small>per ${esc((s.unit_label || 'unit').replace(/s\b.*$/, ''))}${suf}</small>`;
     }
@@ -375,9 +376,12 @@
       $('method-wrap').style.display = income ? 'none' : '';
       $('rate-wrap').style.display = !fixed && !editing.use_bands ? '' : 'none';
       $('incl-wrap').style.display = !fixed && !income ? '' : 'none';
-      $('size-wrap').style.display = income ? '' : 'none';
+      $('size-wrap').style.display = income || editing.pricing_type === 'tiered_transactions' ? '' : 'none';
       $('f-rate-label').textContent = income ? 'Rate per income step (£)' : 'Rate per unit (£)';
-      document.querySelector('#size-wrap .hint').textContent = 'e.g. 10000 = rate charged for each £10,000 of estimated income or part of it (£1–£10,000 = 1 step).';
+      document.querySelector('#size-wrap label').textContent = income ? 'Rate applies per £ of income' : 'Batch size (optional)';
+      document.querySelector('#size-wrap .hint').textContent = income
+        ? 'e.g. 10000 = rate charged for each £10,000 of estimated income or part of it (£1–£10,000 = 1 step).'
+        : 'Batch size: e.g. 50 = rate charged for each batch of up to 50 (1–50 = 1 batch, 51–100 = 2). Leave 1 to charge per transaction.';
       $('bands-wrap').style.display = !fixed && editing.use_bands ? '' : 'none';
       // One-off services are always a one-off fee
       $('f-period').querySelectorAll('option').forEach(o => o.disabled = editing.service_kind === 'catch_up' && o.value !== 'one_off');
@@ -437,7 +441,7 @@
         base_fee: $('f-base').value === '' ? null : Number($('f-base').value),
         per_unit_rate: $('f-rate').value === '' ? null : Number($('f-rate').value),
         included_units: $('f-incl').value === '' ? 0 : Number($('f-incl').value),
-        unit_size: editing.pricing_type === 'income_based' ? (Number($('f-size').value) || 10000) : 1,
+        unit_size: editing.pricing_type === 'income_based' ? (Number($('f-size').value) || 10000) : (editing.pricing_type === 'tiered_transactions' ? (Number($('f-size').value) || 1) : 1),
         payment_structure: $('f-paystruct').value,
         deposit_amount: $('f-deposit').value === '' ? null : Number($('f-deposit').value),
         unit_label: $('f-unit').value, bands: bands.map(b => ({ ...b, max_qty: b.max_qty === '' ? null : b.max_qty })),
@@ -489,7 +493,7 @@
         per_unit_rate: s.pricing_type !== 'fixed' && !s.use_bands ? s.per_unit_rate : null,
         use_bands: s.pricing_type !== 'fixed' && s.use_bands,
         unit_label: s.pricing_type === 'fixed' ? null : s.unit_label.trim(),
-        unit_size: s.pricing_type === 'income_based' ? s.unit_size : 1,
+        unit_size: ['income_based', 'tiered_transactions'].includes(s.pricing_type) ? (s.unit_size || 1) : 1,
         payment_structure: s.payment_structure,
         runs_until_cancelled: editing.service_kind === 'ongoing' && s.price_period === 'monthly' && $('f-rolling').checked,
         deposit_amount: s.payment_structure === 'deposit_balance' ? (s.deposit_amount || 0) : null,
