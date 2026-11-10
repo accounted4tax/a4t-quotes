@@ -13,6 +13,7 @@
 // - Plans that run until cancelled (service.runs_until_cancelled, e.g. MTD plans): charged every month
 //   with no end date. Not part of the year-end schedule or "pay in full"; the first month is paid on
 //   acceptance and then monthly until the client cancels (totals.rolling_monthly).
+//   Ticked "earlier year" = MTD catch-up: months not covered x plan price, less 10% (<=3 months) / 15% (more).
 // - Payments are on the same day each month from the start date; the last one is on or before the year end.
 // - Late start (payments left <= threshold, default 2): monthly is not offered by default; the
 //   ongoing total is paid in one go, unless Eduard sets a number of instalments for this quote.
@@ -100,6 +101,13 @@
       const dv = Number(ln.discount_value || 0);
       if (ln.discount_type === 'percent') lineDisc = r2(gross * Math.min(100, Math.max(0, dv)) / 100);
       else if (ln.discount_type === 'fixed') lineDisc = r2(Math.min(gross, Math.max(0, dv)));
+      // MTD catch-up: months not yet covered x the monthly plan, less 10% (up to 3 months) or 15% (more),
+      // unless a discount has been set by hand on the line. Rates from settings.mtd_catchup_discount.
+      else if (s.runs_until_cancelled && monthly && kind === 'one_off' && months) {
+        const cd = settings.mtd_catchup_discount || { up_to_3_months: 10, over_3_months: 15 };
+        const pct = Number(months <= 3 ? cd.up_to_3_months : cd.over_3_months) || 0;
+        if (pct) { lineDisc = r2(gross * pct / 100); detail += ` · catch-up discount ${pct}%`; }
+      }
 
 
       return { ...ln, unit_price: unit, months, group, rolling, gross, line_discount: lineDisc, after_line: r2(gross - lineDisc), kind, detail };

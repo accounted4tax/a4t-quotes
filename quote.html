@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=11">
+  <link rel="stylesheet" href="assets/css/app.css?v=12">
 </head>
 <body>
   <header class="topbar">
@@ -101,11 +101,11 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=11"></script>
-  <script src="assets/js/app.js?v=11"></script>
-  <script src="assets/js/pricing.js?v=11"></script>
-  <script src="assets/js/quote-calc.js?v=11"></script>
-  <script src="assets/js/client-form.js?v=11"></script>
+  <script src="assets/js/config.js?v=12"></script>
+  <script src="assets/js/app.js?v=12"></script>
+  <script src="assets/js/pricing.js?v=12"></script>
+  <script src="assets/js/quote-calc.js?v=12"></script>
+  <script src="assets/js/client-form.js?v=12"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -232,7 +232,7 @@
         const qtyField = s.pricing_type !== 'fixed' ? `<div class="field"><label for="ln-q-${i}">${esc(s.pricing_type === 'income_based' ? 'Estimated income (£)' : (s.unit_label ? s.unit_label.charAt(0).toUpperCase() + s.unit_label.slice(1) : 'Quantity'))}</label>
           <input id="ln-q-${i}" data-i="${i}" data-k="quantity" type="number" inputmode="${s.pricing_type === 'income_based' ? 'decimal' : 'numeric'}" min="0" step="${s.pricing_type === 'income_based' ? '100' : '1'}" value="${l.quantity ?? ''}" ${editable ? '' : 'disabled'}></div>` : '';
         // ongoing monthly services run for every payment left; months are only entered for catch-up
-        const monthsField = s.price_period === 'monthly' && (l.is_earlier_year || s.service_kind !== 'ongoing') ? `<div class="field"><label for="ln-m-${i}">Months to catch up</label>
+        const monthsField = s.price_period === 'monthly' && (l.is_earlier_year || s.service_kind !== 'ongoing') ? `<div class="field"><label for="ln-m-${i}">${s.runs_until_cancelled ? 'Months not yet covered' : 'Months to catch up'}</label>
           <input id="ln-m-${i}" data-i="${i}" data-k="months" type="number" inputmode="numeric" min="1" max="24" step="1" value="${l.months ?? 12}" ${editable ? '' : 'disabled'}></div>` : '';
         const canEarlier = s.service_kind === 'ongoing' && s.payment_structure !== 'deposit_balance';
         return `<div class="qline" data-i="${i}">
@@ -241,7 +241,7 @@
             ${editable ? `<button type="button" class="band-del" data-del="${i}" aria-label="Remove ${esc(s.name)}">×</button>` : ''}
           </div>
           ${(qtyField || monthsField) ? `<div class="row2">${qtyField}${monthsField}</div>` : ''}
-          ${canEarlier ? `<label class="inline-check"><input type="checkbox" data-i="${i}" data-k="is_earlier_year" ${l.is_earlier_year ? 'checked' : ''} ${editable ? '' : 'disabled'}> Earlier year (catch-up, paid once)</label>` : ''}
+          ${canEarlier ? `<label class="inline-check"><input type="checkbox" data-i="${i}" data-k="is_earlier_year" ${l.is_earlier_year ? 'checked' : ''} ${editable ? '' : 'disabled'}> ${s.runs_until_cancelled ? 'Catch-up for months already passed (paid once, 10%/15% off)' : 'Earlier year (catch-up, paid once)'}</label>` : ''}
           ${(l.is_earlier_year || s.service_kind === 'catch_up') && editable ? `<div class="field" style="margin-top:8px"><label for="ln-p-${i}">Period <span style="font-weight:400;color:var(--muted)">(optional, e.g. 2025/26)</span></label><input id="ln-p-${i}" data-i="${i}" data-k="period_label" type="text" maxlength="80" value="${esc(l.period_label || '')}"></div>` : ''}
           <div class="row2" style="margin-top:8px">
             <div class="field"><label for="ln-d-${i}">Discount</label>
