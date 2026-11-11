@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=12">
+  <link rel="stylesheet" href="assets/css/app.css?v=13">
 </head>
 <body>
   <header class="topbar">
@@ -101,11 +101,11 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=12"></script>
-  <script src="assets/js/app.js?v=12"></script>
-  <script src="assets/js/pricing.js?v=12"></script>
-  <script src="assets/js/quote-calc.js?v=12"></script>
-  <script src="assets/js/client-form.js?v=12"></script>
+  <script src="assets/js/config.js?v=13"></script>
+  <script src="assets/js/app.js?v=13"></script>
+  <script src="assets/js/pricing.js?v=13"></script>
+  <script src="assets/js/quote-calc.js?v=13"></script>
+  <script src="assets/js/client-form.js?v=13"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -176,7 +176,8 @@
     }
     function renderOutstanding() {
       const os = (client && client.client_type === 'ltd' && client.ch_snapshot && client.ch_snapshot.outstanding_accounts) || [];
-      const catchSvc = services.find(s => s.is_active && /catch-up year/i.test(s.name) && /accounts/i.test(s.name));
+      const catchSvc = services.find(s => s.is_active && /catch-up year/i.test(s.name) && /accounts/i.test(s.name) && !/dormant/i.test(s.name));
+      const dormSvc = services.find(s => s.is_active && /catch-up year/i.test(s.name) && /dormant/i.test(s.name));
       if (!os.length || !editable) { $('outstanding').innerHTML = ''; return; }
       const label = (p) => `Accounts for the year ended ${fd(p.period_end)}`;
       $('outstanding').innerHTML = `<div class="alert alert-ok show" style="margin-top:12px;margin-bottom:0"><b>Outstanding accounts at Companies House</b>
@@ -184,11 +185,11 @@
           const added = lines.some(l => l.period_label === label(p));
           return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px">
             <span>Period to ${esc(fd(p.period_end))}, due ${esc(fd(p.due_date))}${p.overdue ? ' <b class="warn">OVERDUE</b>' : ''}</span>
-            ${added ? '<span class="chip">Added</span>' : (catchSvc ? `<button type="button" class="btn btn-ghost btn-sm" data-os="${i}">Add catch-up</button>` : '')}</div>`;
+            ${added ? '<span class="chip">Added</span>' : `<span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${catchSvc ? `<button type="button" class="btn btn-ghost btn-sm" data-os="${i}" data-kind="trading">Add catch-up</button>` : ''}${dormSvc ? `<button type="button" class="btn btn-ghost btn-sm" data-os="${i}" data-kind="dormant">Dormant</button>` : ''}</span>`}</div>`;
         }).join('')}</div>`;
       document.querySelectorAll('[data-os]').forEach(b => b.onclick = () => {
-        const p = os[Number(b.dataset.os)];
-        lines.push({ service_id: catchSvc.id, service: catchSvc, quantity: null, price_override: null, discount_type: 'none', discount_value: 0, is_earlier_year: true, months: null, period_label: label(p) });
+        const p = os[Number(b.dataset.os)], svc = b.dataset.kind === 'dormant' ? dormSvc : catchSvc;
+        lines.push({ service_id: svc.id, service: svc, quantity: null, price_override: null, discount_type: 'none', discount_value: 0, is_earlier_year: true, months: null, period_label: label(p) });
         dirty = true; renderLines(); renderOutstanding(); recalc();
       });
     }
