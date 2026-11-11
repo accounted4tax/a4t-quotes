@@ -40,6 +40,77 @@ async function notifyAdmin(templateKey: string, vars: Record<string, string>, id
     status: res.ok ? 'sent' : 'failed', brevo_message_id: out.messageId || null, error: res.ok ? null : (out.message || `HTTP ${res.status}`) });
 }
 
+// ---------- welcome email (client) + new client email (Eduard), once per quote ----------
+function b64(bytes: Uint8Array) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); }
+const fdate = (d?: string | null) => !d ? '' : new Date(String(d).length === 10 ? d + 'T12:00:00Z' : String(d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' });
+const pounds = (n: number) => '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function sendTemplate(templateKey: string, to: { email: string; name?: string }, vars: Record<string, string>, ids: { client_id: string; quote_id: string },
+  attachment?: { name: string; content: string }[], subjectVars?: Record<string, string>) {
+  const key = Deno.env.get('BREVO_API_KEY'); if (!key || !to.email) return;
+  const { data: sent } = await db.from('qs_email_log').select('id').eq('template_key', templateKey).eq('quote_id', ids.quote_id).eq('status', 'sent').limit(1);
+  if (sent?.length) return; // never twice
+  const { data: t } = await db.from('qs_email_templates').select('*').eq('template_key', templateKey).eq('is_active', true).maybeSingle();
+  if (!t) return;
+  const { data: st } = await db.from('qs_settings').select('key,value').in('key', ['email_sender', 'practice']);
+  const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
+  const p = S.practice || {}, sender = S.email_sender || { name: 'Accounted4Tax', email: 'info@accounted4tax.co.uk' };
+  const subject = fill(t.subject, subjectVars || vars);
+  const html = `<div style="background:#F5F6F8;padding:24px 12px"><div style="font-family:Arial,Helvetica,sans-serif;color:#14213D;max-width:560px;margin:0 auto;font-size:15px;line-height:1.55"><div style="background:#14213D;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:18px;font-weight:bold">Accounted4Tax</div><div style="background:#fff;padding:22px 18px;border-radius:0 0 10px 10px">${fill(t.body_html, vars)}</div><p style="color:#4A5568;font-size:12px;text-align:center;margin-top:14px">${esc(p.name || 'Accounted4Tax Ltd')} · ${esc(p.registered_office || '128 City Road, London EC1V 2NX')} · ${esc(p.email || 'info@accounted4tax.co.uk')}${p.phone ? ' · ' + esc(p.phone) : ''}</p></div></div>`;
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', { method: 'POST', headers: { 'api-key': key, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ sender, replyTo: sender, to: [to], subject, htmlContent: html, attachment, tags: [templateKey] }) });
+  const out = await res.json().catch(() => ({}));
+  await db.from('qs_email_log').insert({ client_id: ids.client_id, quote_id: ids.quote_id, template_key: templateKey, to_email: to.email, subject,
+    status: res.ok ? 'sent' : 'failed', brevo_message_id: out.messageId || null, error: res.ok ? null : (out.message || `HTTP ${res.status}`) });
+}
+
+async function welcomeEmails(q: any, s: any, live: boolean) {
+  const { data: c } = await db.from('clients').select('*').eq('id', q.client_id).single();
+  const { data: lines } = await db.from('qs_quote_lines').select('description,period_label,is_earlier_year,line_total,runs_until_cancelled,charge_kind').eq('quote_id', q.id).order('sort_order');
+  const { data: acc } = await db.from('qs_acceptances').select('pdf_path,signed_name,consumer_start_now').eq('quote_id', q.id).order('signed_at', { ascending: false }).limit(1).maybeSingle();
+  const { data: st } = await db.from('qs_settings').select('key,value').in('key', ['app_base_url', 'practice', 'admin_notify_email']);
+  const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
+  const base = String(S.app_base_url || 'https://accounted4tax.github.io/a4t-quotes').replace(/\/$/, '');
+  const display = displayOf(c), ltd = c.client_type === 'ltd';
+  const paid = Number(s.amount_total || 0) / 100;
+  const monthly = q.payment_option === 'monthly' && q.monthly_allowed, n = Number(q.payments_count || 0), R = Number(q.rolling_monthly || 0);
+  let pay = `${pounds(paid)} paid today`;
+  if (monthly) pay += n > 1 ? `, then ${n - 1} monthly payment${n - 1 === 1 ? '' : 's'} of ${pounds(Number(q.monthly_amount) + R)} until ${fdate(q.last_payment_date)}` : '';
+  if (R) pay += monthly && n > 1 ? `, then ${pounds(R)} a month until you cancel` : `, then ${pounds(R)} a month until you cancel`;
+  pay += '.';
+  if (Number(q.balance_later)) pay += ` The Self Assessment balance of ${pounds(Number(q.balance_later))} will be taken from the same card before we submit your return to HMRC.`;
+  const hasSub = s.mode === 'subscription';
+
+  // signed engagement letter + quote PDF
+  let attachment: { name: string; content: string }[] | undefined;
+  if (acc?.pdf_path) {
+    const { data: f } = await db.storage.from('qs-signed-docs').download(acc.pdf_path);
+    if (f) attachment = [{ name: `Engagement letter and quote ${q.quote_number} (signed).pdf`, content: b64(new Uint8Array(await f.arrayBuffer())) }];
+  }
+  const phone = (S.practice || {}).phone || '07563 811938';
+  const ids = { client_id: c.id, quote_id: q.id };
+  await sendTemplate('welcome_client', { email: c.email, name: c.full_name }, {
+    client_first_name: esc(String(c.full_name || '').trim().split(/\s+/)[0] || 'there'), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number),
+    company_for: ltd && c.company_name ? ' and ' + esc(c.company_name) : '', client_display: esc(display), payment_summary: esc(pay), phone: esc(phone),
+    portal_url: esc(`${base}/portal.html?t=${q.access_token}`),
+    cancel_block: hasSub ? `<p style="color:#4A5568;font-size:14px">To stop your monthly payments, please email us or call ${esc(phone)}. As set out in your engagement letter, we need 14 days' notice before the next payment.</p>` : '',
+    consumer_block: !ltd ? (acc?.consumer_start_now ? '<p style="color:#4A5568;font-size:14px">You asked us to start work straight away. You can still cancel within 14 days of accepting; if you do, you pay only for work done until then.</p>'
+      : '<p style="color:#4A5568;font-size:14px">You have 14 days from accepting to cancel. As you did not ask us to start straight away, we will start work once that period has passed (and your identity checks are complete).</p>') : '',
+  }, ids, attachment, { client_display: display });
+
+  const row = (k: string, v?: string | null) => v ? `<tr><td style="padding:4px 8px 4px 0;color:#4A5568;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:4px 0">${esc(v)}</td></tr>` : '';
+  const typeLabel = ({ sole_trader: 'Sole trader', ltd: 'Limited company', landlord: 'Landlord' } as any)[c.client_type] || c.client_type;
+  const admin = typeof S.admin_notify_email === 'string' ? S.admin_notify_email : (S.admin_notify_email?.email || 'info@accounted4tax.co.uk');
+  await sendTemplate('new_client_admin', { email: admin, name: 'Eduard' }, {
+    client_display: esc(display), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number), payment_summary: esc(pay),
+    detail_rows: [row('Type', typeLabel), row('Contact', c.full_name), row('Company', ltd ? c.company_name : c.trading_name), row('Company number', c.crn), row('CT UTR', c.ct_utr), row('SA UTR', c.utr),
+      row('Email', c.email), row('Phone', c.phone), row('Address', c.address), row('Year end', fdate(q.year_end_date)), row('Signed by', acc?.signed_name)].join(''),
+    services_list: (lines || []).map((l: any) => `<li>${esc(`${l.description}${l.is_earlier_year ? ' catch-up' : ''}${l.period_label ? ` (${l.period_label})` : ''}`)} – ${esc(pounds(Number(l.line_total)))}${l.runs_until_cancelled ? ' a month' : ''}</li>`).join(''),
+    start_now_line: ltd ? 'Company client – no consumer cancellation period.' : acc?.consumer_start_now ? 'Consumer: asked us to START NOW within the 14-day cancellation period.' : 'Consumer: did NOT ask to start early – work starts after the 14-day cancellation period.',
+    stripe_customer: esc(s.customer || ''), stripe_mode: live ? '' : ' (sandbox – test payment)',
+  }, ids, attachment, { client_display: display, amount_paid: pounds(paid), quote_number: q.quote_number });
+}
+
 async function quoteInfo(quote_id?: string) {
   if (!quote_id) return null;
   const { data } = await db.from('qs_quotes').select('*, client:clients(id,full_name,company_name,trading_name,client_type,email)').eq('id', quote_id).maybeSingle();
@@ -94,6 +165,8 @@ async function checkoutCompleted(s: any) {
   await db.from('qs_quotes').update(upd).eq('id', q.id);
   await db.from('qs_events').insert({ source: 'stripe', event_type: 'quote_paid', client_id: q.client_id, quote_id: q.id,
     payload: { session: s.id, mode: s.mode, amount: s.amount_total, subscription: s.subscription || null } });
+  try { await welcomeEmails({ ...q, ...upd }, s, !!s.livemode); }
+  catch (e) { await db.from('qs_events').insert({ source: 'system', event_type: 'welcome_email_error', client_id: q.client_id, quote_id: q.id, payload: { error: String((e as Error).message || e).slice(0, 300) } }); }
   return 'paid';
 }
 
