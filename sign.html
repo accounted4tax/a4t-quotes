@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=14">
+  <link rel="stylesheet" href="assets/css/app.css?v=15">
   <style>
     body { background: #E9ECF2; }
     .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
@@ -74,7 +74,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=14"></script>
+  <script src="assets/js/config.js?v=15"></script>
   <script>
   (async function () {
     const cfg = window.A4T_CONFIG;
@@ -144,21 +144,41 @@
     $('ref').textContent = `Quote ${lq.quote_number} · version ${lq.version}`;
     document.title = `Accept and sign ${lq.quote_number} · Accounted4Tax`;
 
-    async function showDone(name, at, url, fresh) {
+    async function goPay(btn) {
+      const e1 = $('payerr'); if (e1) e1.classList.remove('show');
+      btn.disabled = true; btn.textContent = 'Opening secure payment…';
+      try {
+        const r = await call('quote-checkout', { action: 'create', token });
+        location.href = r.paid ? `paid.html?t=${token}` : r.url;
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Pay now';
+        if (e1) { e1.textContent = e.message; e1.classList.add('show'); }
+      }
+    }
+
+    async function showDone(name, at, url, fresh, status) {
       let link = url;
       if (!link) { try { link = (await call('quote-accept', { action: 'download', token })).url; } catch (_) {} }
+      const paid = status === 'paid', cancelled = p.get('payment') === 'cancelled';
       $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
         <h1 class="title" style="font-size:1.4rem">${fresh ? 'Thank you' : 'Already accepted'}${name ? ', ' + esc(name.split(' ')[0]) : ''}</h1>
         <p>Quote ${esc(lq.quote_number)} and your engagement letter were signed${name ? ' by ' + esc(name) : ''}${at ? ' on ' + esc(fdt(at)) : ''}.</p>
-        ${link ? `<p><a class="btn btn-teal" href="${esc(link)}">Download your signed copy (PDF)</a></p>` : ''}
+        ${paid ? `<p><b>Your payment has been received.</b> <a href="paid.html?t=${esc(token)}">See your payment details</a></p>`
+          : `<div class="sign" style="text-align:left;margin:14px 0">
+              <p style="margin:0 0 4px;font-weight:700;color:var(--navy)">${cancelled ? 'Your payment was not completed' : 'Last step: payment'}</p>
+              <p class="hint" style="margin:0 0 10px">${fresh ? 'Taking you to our secure payment page…' : 'Pay securely by card on Stripe\'s payment page. We never see or store your card details.'}</p>
+              <button type="button" class="btn btn-teal btn-block" id="paybtn">Pay now</button>
+              <div class="alert alert-error err" id="payerr" role="alert"></div></div>`}
+        ${link ? `<p><a class="btn btn-ghost" href="${esc(link)}">Download your signed copy (PDF)</a></p>` : ''}
         <p class="hint">We have also emailed a copy to you.</p>
-        <ul><li><b>Payment:</b> we will take payment as you chose. ${fresh ? '' : ''}We will be in touch shortly if anything else is needed.</li>
-          <li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
+        <ul><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
           <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li></ul>
         <p class="hint">Questions? Reply to our email or call ${esc((Q.practice || {}).phone || '07563 811938')}.</p></div>`;
+      const pb = $('paybtn');
+      if (pb) { pb.onclick = () => goPay(pb); if (fresh && !cancelled) setTimeout(() => goPay(pb), 1200); }
     }
 
-    if (['accepted', 'paid'].includes(lq.status)) return showDone(L.accepted?.signed_name, L.accepted?.signed_at, null, false);
+    if (['accepted', 'paid'].includes(lq.status)) return showDone(L.accepted?.signed_name, L.accepted?.signed_at, null, false, lq.status);
     if (lq.status === 'expired' || q.status === 'expired') return state('This quote has expired', `Quote ${esc(lq.quote_number)} was valid until ${esc(fd(lq.expires_at))}. Please contact us and we will send you an updated quote.`);
     if (lq.status === 'declined') return state('Quote declined', 'If you have changed your mind, please contact us.');
 
@@ -220,10 +240,10 @@
       try {
         const r = await call('quote-accept', { action: 'accept', token, quote_version: lq.version, fingerprint: L.fingerprint, signed_name: name, ticks, payment_option: pay || 'one_off' });
         window.scrollTo(0, 0);
-        showDone(name, r.signed_at, r.download_url, true);
+        showDone(name, r.signed_at, r.download_url, true, 'accepted');
       } catch (e) {
         btn.disabled = false; btn.textContent = 'Accept and sign';
-        if (e.code === 'already_accepted') return showDone(null, null, null, false);
+        if (e.code === 'already_accepted') return showDone(null, null, null, false, 'accepted');
         showErr(e.message + (e.code === 'changed' ? ' ' : ''));
       }
     };

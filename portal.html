@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Your payments · Accounted4Tax</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=15">
+  <style>
+    body { background: #E9ECF2; }
+    .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
+    @media (min-width: 800px) { .doc { margin: 24px auto; min-height: 0; border-radius: 6px; overflow: hidden; } }
+    .hd { background: var(--navy); color: #fff; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .hd .brand { font: 700 1.4rem var(--font-head); }
+    .hd .ref { font-size: .82rem; color: #D5DAE5; }
+    .body { padding: 22px 20px 28px; }
+    .title { font: 700 1.6rem var(--font-head); color: var(--navy); margin: 0 0 6px; }
+    .lead { color: #4a5568; margin: 0 0 16px; }
+    .steps { display: flex; gap: 8px; margin: 0 0 18px; flex-wrap: wrap; }
+    .steps span { font-size: .78rem; font-weight: 600; color: var(--navy); background: #F1F3F7; border-radius: 99px; padding: 5px 10px; }
+    .sec { margin-top: 22px; }
+    .sec > h2 { font: 700 1.08rem var(--font-body); color: var(--navy); margin: 0 0 8px; }
+    .choice { display: grid; gap: 10px; }
+    @media (min-width: 560px) { .choice { grid-template-columns: 1fr 1fr; } }
+    .opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid #DCE0E8; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; text-align: left; font: inherit; color: inherit; width: 100%; }
+    .opt.on { border-color: var(--teal); background: #F4FAF9; }
+    .opt .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C7CDD8; flex: 0 0 20px; margin-top: 2px; }
+    .opt.on .radio { border: 6px solid var(--teal); }
+    .opt b { color: var(--navy); display: block; }
+    .opt .big { font: 700 1.1rem var(--font-body); color: var(--navy); margin: 3px 0 2px; }
+    .opt small { color: var(--muted); display: block; font-size: .8rem; }
+    details.part { border: 1px solid #E3E6EC; border-radius: 10px; margin-bottom: 10px; background: #fff; }
+    details.part > summary { cursor: pointer; padding: 13px 14px; font-weight: 600; color: var(--navy); list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+    details.part > summary::-webkit-details-marker { display: none; }
+    details.part > summary::after { content: 'Read'; font-size: .78rem; color: var(--teal); font-weight: 600; white-space: nowrap; }
+    details.part[open] > summary::after { content: 'Hide'; }
+    details.part .txt { padding: 2px 16px 14px; font-size: .9rem; color: #2a3346; line-height: 1.55; }
+    .txt h3 { font: 700 .98rem var(--font-body); color: var(--navy); margin: 14px 0 6px; }
+    .txt h4 { font: 700 .92rem var(--font-body); color: var(--navy); margin: 12px 0 4px; }
+    .txt p { margin: 0 0 9px; }
+    .txt ul, .txt ol { margin: 0 0 9px; padding-left: 20px; }
+    .txt li { margin: 3px 0; }
+    .txt .trow { border-top: 1px solid #E3E6EC; padding: 8px 0; }
+    .txt .trow b { color: var(--navy); }
+    .sign { background: #F7F8FA; border: 1px solid #E3E6EC; border-radius: 12px; padding: 16px; }
+    .tick { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid #E8EBF0; font-size: .92rem; cursor: pointer; }
+    .tick:last-of-type { border-bottom: 0; }
+    .tick input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; accent-color: var(--teal); }
+    .tick .req { color: #B3261E; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+    .tick small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+    .sigbox { margin-top: 14px; }
+    .sigbox input { font: 500 1.15rem var(--font-body); }
+    .sigprev { font: italic 600 1.5rem var(--font-head); color: var(--navy); min-height: 2rem; margin-top: 6px; border-bottom: 1px solid #C7CDD8; padding-bottom: 4px; }
+    .state { text-align: center; padding: 26px 6px; }
+    .done { text-align: center; padding: 10px 4px 4px; }
+    .done .ok { width: 56px; height: 56px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 30px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .done ul { text-align: left; max-width: 520px; margin: 14px auto; padding-left: 20px; }
+    .preview-bar { background: var(--gold); color: var(--navy); text-align: center; font-weight: 600; font-size: .85rem; padding: 8px 12px; }
+    .ft { border-top: 1px solid #E3E6EC; padding: 14px 20px 20px; font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.6; }
+    .err { display: none; margin-top: 12px; }
+    .err.show { display: block; }
+    </style>
+</head>
+<body>
+  <div class="doc">
+    <header class="hd"><div class="brand">Accounted4Tax</div><div class="ref" id="ref"></div></header>
+    <main class="body" id="main"><p>Opening your secure payments page…</p></main>
+    <footer class="ft">Accounted4Tax Ltd · Registered in England and Wales, company number 16438537 · Registered office 128 City Road, London EC1V 2NX · Not VAT registered</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=15"></script>
+  <script>
+  (async function () {
+    const cfg = window.A4T_CONFIG;
+    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const $ = (id) => document.getElementById(id);
+    const p = new URLSearchParams(location.search);
+    const token = p.get('t');
+    const state = (title, text) => { $('main').innerHTML = `<div class="state"><h1 class="title" style="font-size:1.35rem">${esc(title)}</h1><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a> or call 07563 811938.</p></div>`; };
+    async function call(fn, body) {
+      const res = await sb.functions.invoke(fn, { body });
+      if (res.error) {
+        let m = 'Something went wrong. Please try again.', code = '';
+        try { const b = await res.error.context.json(); if (b.error) { m = b.error.message; code = b.error.code; } } catch (_) {}
+        const e = new Error(m); e.code = code; throw e;
+      }
+      return res.data;
+    }
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) return state('Link not valid', 'This link is incomplete. Please use the link in your email.');
+
+    try { location.replace((await call('quote-checkout', { action: 'portal', token })).url); }
+    catch (e) { state('We could not open your payments page', esc(e.message)); }
+  })();
+  </script>
+</body>
+</html>
