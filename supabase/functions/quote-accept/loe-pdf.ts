@@ -15,7 +15,7 @@ const safe = (t: string) => Array.from(String(t ?? '')).map((ch) => {
   const c = ch.codePointAt(0)!;
   if (c >= 0x2010 && c <= 0x2012) return '-';
   if (c === 0x2192) return '->';
-  return (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || KEEP.has(c) ? ch : '';
+  return c === 10 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || KEEP.has(c) ? ch : '';
 }).join('');
 
 type Run = { text: string; b?: boolean; i?: boolean };
