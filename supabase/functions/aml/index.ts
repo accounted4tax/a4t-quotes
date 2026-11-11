@@ -2,8 +2,8 @@
 // PUBLIC (upload link token, used by id.html):
 //   { action: 'get', token }                                  → who, what to upload, the document lists and date rules
 //   { action: 'upload_url', token, doc_type, mime, size }     → signed upload URL in the private bucket qs-aml-docs
-//   { action: 'submit', token, id_kind, id_expiry, poa_kind, poa_date, files:[{doc_type, path, file_name, mime, size}] }
-//        → checks the rules (photo ID in date, proof of address dated within its limit, not the same document twice),
+//   { action: 'submit', token, id_kind, poa_kind, poa_date, files:[{doc_type, path, file_name, mime, size}] }
+//        → checks the rules (proof of address dated within its limit, not the same document twice),
 //          saves the documents (also to the Practice Manager documents table) and emails Eduard.
 // ADMIN (signed in, used by the Practice Manager client page):
 //   { action: 'people', client_id }                           → contact + directors + PSCs (Companies House) with their status
@@ -212,9 +212,6 @@ Deno.serve(async (req) => {
       if (!idKind) return fail(400, 'id_kind', 'Please choose which photo ID you are uploading.');
       if (!poaKind) return fail(400, 'poa_kind', 'Please choose which proof of address you are uploading.');
       if (idKind.k === 'driving_licence' && poaKind.k === 'driving_licence') return fail(400, 'same', 'You cannot use the same document for photo ID and proof of address. Please choose a different proof of address.');
-      const exp = body.id_expiry ? new Date(String(body.id_expiry) + 'T00:00:00Z') : null;
-      if (!exp || isNaN(+exp)) return fail(400, 'id_expiry', 'Please enter the expiry date shown on your photo ID.');
-      if (exp < today()) return fail(400, 'id_expired', 'Your photo ID has expired. Please upload a current one.');
       let poaDate: Date | null = null;
       if (poaKind.rule !== 'none') {
         poaDate = body.poa_date ? new Date(String(body.poa_date) + 'T00:00:00Z') : null;
@@ -245,12 +242,12 @@ Deno.serve(async (req) => {
         const { data: pmDoc } = await db.from('documents').insert({ client_id: c.id, category: f.doc_type === 'proof_of_address' ? 'aml_address' : 'aml_id',
           file_name: `${r.person_name} – ${label[f.doc_type]}${f.file_name ? ` (${String(f.file_name).slice(0, 80)})` : ''}`, file_url: `${BUCKET}/${f.path}`,
           file_size: Number(f.size) || null, mime_type: f.mime || null, uploaded_by: 'client', verified: false, visible_to_client: false,
-          notes: f.doc_type === 'photo_id' ? `Expiry ${body.id_expiry}` : f.doc_type === 'proof_of_address' && poaDate ? `Dated ${body.poa_date}` : null }).select('id').single();
+          notes: f.doc_type === 'proof_of_address' && poaDate ? `Dated ${body.poa_date}` : null }).select('id').single();
         await db.from('qs_aml_documents').insert({ request_id: r.id, client_id: c.id, doc_type: f.doc_type, storage_path: f.path, file_name: String(f.file_name || '').slice(0, 200),
-          mime_type: f.mime || null, size_bytes: Number(f.size) || null, doc_kind: kind, doc_date: f.doc_type === 'photo_id' ? body.id_expiry : f.doc_type === 'proof_of_address' ? (body.poa_date || null) : null,
+          mime_type: f.mime || null, size_bytes: Number(f.size) || null, doc_kind: kind, doc_date: f.doc_type === 'proof_of_address' ? (body.poa_date || null) : null,
           pm_document_id: pmDoc?.id || null });
       }
-      const submitted = { id_kind: idKind.k, id_label: idKind.l, id_expiry: body.id_expiry, poa_kind: poaKind.k, poa_label: poaKind.l, poa_date: body.poa_date || null, files: files.length, at: nowIso,
+      const submitted = { id_kind: idKind.k, id_label: idKind.l, poa_kind: poaKind.k, poa_label: poaKind.l, poa_date: body.poa_date || null, files: files.length, at: nowIso,
         ip: (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || null, device: (req.headers.get('user-agent') || '').slice(0, 300) };
       await db.from('qs_aml_requests').update({ status: 'received', received_at: nowIso, submitted }).eq('id', r.id);
       await db.from('qs_events').insert({ source: 'client', event_type: 'aml_received', client_id: c.id, quote_id: r.quote_id, payload: { request_id: r.id, person: r.person_name } });
@@ -259,8 +256,8 @@ Deno.serve(async (req) => {
       const admin = typeof S.admin_notify_email === 'string' ? S.admin_notify_email : (S.admin_notify_email?.email || 'info@accounted4tax.co.uk');
       await sendEmail('aml_received_admin', { email: admin, name: 'Eduard' }, {
         person_name: esc(r.person_name || ''), role_label: esc(roleLabel(r.person_role)), client_display: esc(displayOf(c)),
-        doc_list: `<li>${esc(idKind.l)} – expires ${esc(fdate(body.id_expiry))} (${by.photo_id.length} file${by.photo_id.length > 1 ? 's' : ''})</li><li>Selfie holding the ID</li><li>${esc(poaKind.l)}${poaDate ? ' – dated ' + esc(fdate(body.poa_date)) : ''} (${by.proof_of_address.length} file${by.proof_of_address.length > 1 ? 's' : ''})</li>`,
-        warnings: 'Check the name matches on both documents, the selfie matches the photo ID, and the address is a home address.',
+        doc_list: `<li>${esc(idKind.l)} (${by.photo_id.length} file${by.photo_id.length > 1 ? 's' : ''})</li><li>Selfie holding the ID</li><li>${esc(poaKind.l)}${poaDate ? ' – dated ' + esc(fdate(body.poa_date)) : ''} (${by.proof_of_address.length} file${by.proof_of_address.length > 1 ? 's' : ''})</li>`,
+        warnings: 'Check the ID is in date, the name matches on both documents, the selfie matches the photo ID, and the address is a home address.',
       }, { client_id: c.id, quote_id: r.quote_id });
       return json({ received: true });
     }
@@ -338,7 +335,7 @@ Deno.serve(async (req) => {
       const rec = { client_id: c.id, director_name: r.person_name, id_type: sub.id_label || sub.id_kind || null, id_verified: true, id_verified_date: d,
         address_type: sub.poa_label || sub.poa_kind || null, address_verified: true, address_verified_date: d, pep_check: pep, sanctions_check: sanc,
         sanctions_check_date: sanc === 'not_checked' ? null : d, risk_rating: risk, review_date: review.toISOString().slice(0, 10),
-        notes: [body.notes, `Verified online by ${who} on ${d}. Photo ID expires ${sub.id_expiry || '?'}${sub.poa_date ? `; proof of address dated ${sub.poa_date}` : ''}.`].filter(Boolean).join(' '),
+        notes: [body.notes, `Verified online by ${who} on ${d}.${sub.poa_date ? `; proof of address dated ${sub.poa_date}` : ''}.`].filter(Boolean).join(' '),
         qs_aml_request_id: r.id };
       const { data: existing } = await db.from('aml_records').select('id,director_name').eq('client_id', c.id);
       const same = (existing || []).find((x: any) => nameKey(x.director_name || '') === nameKey(r.person_name || ''));

@@ -124,15 +124,15 @@
       <section class="item" id="s1"><h2><span class="n">1</span>Photo ID</h2>
         <p class="hint">A clear photo of the whole document, all four corners showing. For a driving licence or ID card, add the front and the back.</p>
         <div class="field"><label for="idk">Which document?</label><select id="idk"><option value="">Choose…</option>${D.id_kinds.map(k => `<option value="${k.k}">${esc(k.l)}</option>`).join('')}</select></div>
-        <div class="field mt"><label for="idx">Expiry date on the document</label><input type="date" id="idx"></div>
         <div class="files" id="f-photo_id"></div>
-        <label class="btn btn-ghost addbtn mt">+ Add photo or PDF<input type="file" accept="image/*,application/pdf" data-t="photo_id"></label>
+        <div class="mt" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-ghost addbtn" data-cam="photo_id" data-face="environment">📷 Take photo</button><label class="btn btn-ghost addbtn">+ Upload photo or PDF<input type="file" accept="image/*,application/pdf" data-t="photo_id"></label></div>
       </section>
 
       <section class="item" id="s2"><h2><span class="n">2</span>Selfie holding your ID</h2>
         <p class="hint">Hold the same ID next to your face. Your face and the photo on the ID must both be clear.</p>
         <div class="files" id="f-selfie"></div>
-        <label class="btn btn-ghost addbtn mt">+ Take selfie<input type="file" accept="image/*" capture="user" data-t="selfie"></label>
+        <button type="button" class="btn btn-ghost addbtn mt" data-cam="selfie" data-face="user">📷 Take selfie</button>
+        <input type="file" accept="image/*" capture="user" data-t="selfie" id="selfie-fallback" style="display:none">
       </section>
 
       <section class="item" id="s3"><h2><span class="n">3</span>Proof of address</h2>
@@ -140,7 +140,7 @@
         <div class="field"><label for="pk">Which document?</label><select id="pk"><option value="">Choose…</option>${D.poa_kinds.map(k => `<option value="${k.k}">${esc(k.l)}${k.rule_text ? ' – ' + esc(k.rule_text) : ''}</option>`).join('')}</select></div>
         <div class="field mt" id="pdw" style="display:none"><label for="pd">Date on the document</label><input type="date" id="pd"><p class="hint" id="pdh" style="margin:4px 0 0"></p></div>
         <div class="files" id="f-proof_of_address"></div>
-        <label class="btn btn-ghost addbtn mt">+ Add photo or PDF<input type="file" accept="image/*,application/pdf" data-t="proof_of_address"></label>
+        <div class="mt" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn btn-ghost addbtn" data-cam="proof_of_address" data-face="environment">📷 Take photo</button><label class="btn btn-ghost addbtn">+ Upload photo or PDF<input type="file" accept="image/*,application/pdf" data-t="proof_of_address"></label></div>
         <div class="rules mt"><b class="no">Not accepted:</b> ${D.not_accepted.map(esc).join(' · ')}.</div>
       </section>
 
@@ -159,7 +159,6 @@
       if (k && k.earliest) $('pd').min = k.earliest;
     };
     $('pd').max = new Date().toISOString().slice(0, 10);
-    $('idx').min = new Date().toISOString().slice(0, 10);
 
     // make big phone photos smaller before uploading (keeps uploads fast and under 10 MB)
     async function shrink(file) {
@@ -178,12 +177,11 @@
       $('s' + ({ photo_id: 1, selfie: 2, proof_of_address: 3 })[t]).classList.toggle('ok', files[t].some(f => f.done));
     }
     document.addEventListener('click', (e) => { const b = e.target.closest('.x'); if (!b) return; files[b.dataset.t].splice(+b.dataset.i, 1); draw(b.dataset.t); });
-    document.querySelectorAll('input[type=file]').forEach(inp => inp.onchange = async () => {
-      const t = inp.dataset.t, raw = inp.files[0]; inp.value = '';
+    async function addFile(t, raw) {
       if (!raw) return;
       showErr('');
       if (files[t].length >= D.max_files[t]) return showErr(`You can add up to ${D.max_files[t]} file${D.max_files[t] > 1 ? 's' : ''} here. Remove one first.`);
-      let f = await shrink(raw);
+      const f = await shrink(raw);
       const mime = (f.type || (/\.heic$/i.test(f.name) ? 'image/heic' : '')).toLowerCase();
       const entry = { name: f.name, mime, size: f.size, preview: /^image\/(jpeg|png|webp)$/.test(mime) ? URL.createObjectURL(f) : null, progress: 30 };
       files[t].push(entry); draw(t);
@@ -193,12 +191,57 @@
         if (up.error) throw new Error('The upload did not finish. Please try again.');
         entry.path = u.path; entry.done = true; draw(t);
       } catch (e) { files[t].splice(files[t].indexOf(entry), 1); draw(t); showErr(e.message); }
-    });
+    }
+    document.querySelectorAll('input[type=file]').forEach(inp => inp.onchange = () => { const f = inp.files[0]; inp.value = ''; addFile(inp.dataset.t, f); });
+
+    // in-page camera: front camera for the selfie, back camera for documents (works on phones and computers)
+    async function openCamera(t, facing) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (t === 'selfie') return $('selfie-fallback').click();
+        return showErr('Your browser cannot open the camera here. Please use "Upload photo or PDF".');
+      }
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:#0b1222;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:12px';
+      ov.innerHTML = `<p style="color:#fff;margin:0;font-weight:600;text-align:center">${t === 'selfie' ? 'Hold your ID next to your face' : t === 'photo_id' ? 'Fit the whole ID in the frame' : 'Fit the whole page in the frame'}</p>
+        <video autoplay playsinline muted style="max-width:100%;max-height:70vh;border-radius:10px;background:#000;${facing === 'user' ? 'transform:scaleX(-1);' : ''}"></video>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <button type="button" class="btn btn-ghost" data-a="cancel" style="background:#fff">Cancel</button>
+          <button type="button" class="btn btn-ghost" data-a="flip" style="background:#fff">Switch camera</button>
+          <button type="button" class="btn btn-teal" data-a="snap">📷 Take photo</button></div>`;
+      document.body.appendChild(ov);
+      const video = ov.querySelector('video');
+      let stream = null, face = facing;
+      const stop = () => { if (stream) stream.getTracks().forEach(x => x.stop()); stream = null; };
+      const start = async () => {
+        stop();
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: face, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+          video.srcObject = stream; video.style.transform = face === 'user' ? 'scaleX(-1)' : '';
+        } catch (e) {
+          ov.remove(); stop();
+          if (t === 'selfie') return $('selfie-fallback').click();
+          showErr('We could not open your camera. Please allow camera access, or use "Upload photo or PDF".');
+        }
+      };
+      ov.onclick = async (e) => {
+        const a = e.target.closest('[data-a]')?.dataset.a; if (!a) return;
+        if (a === 'cancel') { stop(); ov.remove(); }
+        if (a === 'flip') { face = face === 'user' ? 'environment' : 'user'; start(); }
+        if (a === 'snap' && video.videoWidth) {
+          const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+          c.getContext('2d').drawImage(video, 0, 0);
+          const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.9));
+          stop(); ov.remove();
+          if (blob) addFile(t, new File([blob], `${t}-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+        }
+      };
+      start();
+    }
+    document.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => openCamera(b.dataset.cam, b.dataset.face));
 
     $('go').onclick = async () => {
       showErr('');
       if (!$('idk').value) return showErr('Please choose which photo ID you are uploading.');
-      if (!$('idx').value) return showErr('Please enter the expiry date on your photo ID.');
       if (!files.photo_id.some(f => f.done)) return showErr('Please add a photo of your ID.');
       if (!files.selfie.some(f => f.done)) return showErr('Please add your selfie holding your ID.');
       if (!pk.value) return showErr('Please choose which proof of address you are uploading.');
@@ -209,7 +252,7 @@
       if (!$('conf').checked) return showErr('Please tick to confirm the documents are yours.');
       const b = $('go'); b.disabled = true; b.textContent = 'Sending…';
       try {
-        await call({ action: 'submit', id_kind: $('idk').value, id_expiry: $('idx').value, poa_kind: pk.value, poa_date: $('pd').value || null,
+        await call({ action: 'submit', id_kind: $('idk').value, poa_kind: pk.value, poa_date: $('pd').value || null,
           files: Object.entries(files).flatMap(([t, l]) => l.map(f => ({ doc_type: t, path: f.path, file_name: f.name, mime: f.mime, size: f.size }))) });
         window.scrollTo(0, 0);
         $('main').innerHTML = `<div class="done"><div class="ok">✓</div><h1 class="title" style="font-size:1.4rem">Thank you, ${esc(first)}</h1><p>We have received your documents and will check them shortly. We will be in touch if we need anything else.</p><p class="hint">Questions? Reply to our email or call ${esc(D.phone)}.</p></div>`;
