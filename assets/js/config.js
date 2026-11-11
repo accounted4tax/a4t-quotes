@@ -7,5 +7,5 @@ window.A4T_CONFIG = {
   APP_NAME: 'A4T Quotes',
   // The Practice Manager (same login, same database) - linked from the top bar
   PRACTICE_MANAGER_URL: 'https://accounted4tax.github.io/accounted4tax-app/',
-  APP_VERSION: '0.4.3 (Phases 1–4)'
+  APP_VERSION: '0.5.0 (Phases 1–5)'
 };

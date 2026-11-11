@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=13">
+  <link rel="stylesheet" href="assets/css/app.css?v=14">
   <style>
     body { background: #E9ECF2; }
     .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
@@ -73,7 +73,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=13"></script>
+  <script src="assets/js/config.js?v=14"></script>
   <script>
   (async function () {
     const cfg = window.A4T_CONFIG;
@@ -249,17 +249,22 @@
     notes.push(`${q.expires_at ? `This quote is valid until ${esc(fd(q.expires_at))}. ` : ''}Click “Accept this quote” to read and sign our engagement letter and pay securely online.`);
     html += `<section class="sec"><h2>Notes</h2><ul class="notes">${notes.map(x => `<li>${x}</li>`).join('')}</ul></section>`;
 
-    html += `<div class="accept"><button type="button" class="btn btn-teal" id="go" disabled>Accept this quote</button>
+    const accepted = ['accepted', 'paid'].includes(q.status);
+    html += accepted
+      ? `<div class="accept"><p style="font-size:.95rem;color:var(--navy)"><b>You have accepted this quote.</b></p><a class="btn btn-ghost" href="sign.html?t=${esc(token)}">Download your signed copy</a></div>`
+      : `<div class="accept"><button type="button" class="btn btn-teal" id="go">Accept this quote</button>
       <p id="go-hint">${ongoing > 0 && n ? 'Choose how you would like to pay first.' : ''}</p>
-      <p>Online acceptance is being finalised. To go ahead now, reply to our email${phone ? ' or call ' + esc(phone) : ''}.</p></div>`;
+      <p>Next you will read and sign our engagement letter${phone ? '. Questions? Reply to our email or call ' + esc(phone) : ''}.</p></div>`;
     $('main').innerHTML = html;
 
+    const payKey = 'a4t-pay-' + token.slice(0, 12);
+    let pay = null; try { pay = sessionStorage.getItem(payKey); } catch (_) {}
     const ch = $('choice');
-    if (ch) ch.onclick = (e) => {
-      const b = e.target.closest('[data-v]'); if (!b) return;
-      ch.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x === b));
-      try { sessionStorage.setItem('a4t-pay-' + token.slice(0, 12), b.dataset.v); } catch (_) {}
-      $('go-hint').textContent = '';
+    const setPay = (v) => { pay = v; if (ch) ch.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x.dataset.v === v)); try { sessionStorage.setItem(payKey, v); } catch (_) {} if ($('go-hint')) $('go-hint').textContent = ''; };
+    if (ch) { ch.onclick = (e) => { const b = e.target.closest('[data-v]'); if (b) setPay(b.dataset.v); }; if (pay) setPay(pay); }
+    if ($('go')) $('go').onclick = () => {
+      if (ch && !pay) { $('go-hint').textContent = 'Please choose how you would like to pay first.'; ch.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      location.href = `sign.html?t=${encodeURIComponent(token)}${pay ? '&pay=' + pay : ''}${preview ? '&preview=1' : ''}`;
     };
   })();
   </script>

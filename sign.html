@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Accept and sign · Accounted4Tax</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=14">
+  <style>
+    body { background: #E9ECF2; }
+    .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
+    @media (min-width: 800px) { .doc { margin: 24px auto; min-height: 0; border-radius: 6px; overflow: hidden; } }
+    .hd { background: var(--navy); color: #fff; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .hd .brand { font: 700 1.4rem var(--font-head); }
+    .hd .ref { font-size: .82rem; color: #D5DAE5; }
+    .body { padding: 22px 20px 28px; }
+    .title { font: 700 1.6rem var(--font-head); color: var(--navy); margin: 0 0 6px; }
+    .lead { color: #4a5568; margin: 0 0 16px; }
+    .steps { display: flex; gap: 8px; margin: 0 0 18px; flex-wrap: wrap; }
+    .steps span { font-size: .78rem; font-weight: 600; color: var(--navy); background: #F1F3F7; border-radius: 99px; padding: 5px 10px; }
+    .sec { margin-top: 22px; }
+    .sec > h2 { font: 700 1.08rem var(--font-body); color: var(--navy); margin: 0 0 8px; }
+    .choice { display: grid; gap: 10px; }
+    @media (min-width: 560px) { .choice { grid-template-columns: 1fr 1fr; } }
+    .opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid #DCE0E8; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; text-align: left; font: inherit; color: inherit; width: 100%; }
+    .opt.on { border-color: var(--teal); background: #F4FAF9; }
+    .opt .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C7CDD8; flex: 0 0 20px; margin-top: 2px; }
+    .opt.on .radio { border: 6px solid var(--teal); }
+    .opt b { color: var(--navy); display: block; }
+    .opt .big { font: 700 1.1rem var(--font-body); color: var(--navy); margin: 3px 0 2px; }
+    .opt small { color: var(--muted); display: block; font-size: .8rem; }
+    details.part { border: 1px solid #E3E6EC; border-radius: 10px; margin-bottom: 10px; background: #fff; }
+    details.part > summary { cursor: pointer; padding: 13px 14px; font-weight: 600; color: var(--navy); list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+    details.part > summary::-webkit-details-marker { display: none; }
+    details.part > summary::after { content: 'Read'; font-size: .78rem; color: var(--teal); font-weight: 600; white-space: nowrap; }
+    details.part[open] > summary::after { content: 'Hide'; }
+    details.part .txt { padding: 2px 16px 14px; font-size: .9rem; color: #2a3346; line-height: 1.55; }
+    .txt h3 { font: 700 .98rem var(--font-body); color: var(--navy); margin: 14px 0 6px; }
+    .txt h4 { font: 700 .92rem var(--font-body); color: var(--navy); margin: 12px 0 4px; }
+    .txt p { margin: 0 0 9px; }
+    .txt ul, .txt ol { margin: 0 0 9px; padding-left: 20px; }
+    .txt li { margin: 3px 0; }
+    .txt .trow { border-top: 1px solid #E3E6EC; padding: 8px 0; }
+    .txt .trow b { color: var(--navy); }
+    .sign { background: #F7F8FA; border: 1px solid #E3E6EC; border-radius: 12px; padding: 16px; }
+    .tick { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid #E8EBF0; font-size: .92rem; cursor: pointer; }
+    .tick:last-of-type { border-bottom: 0; }
+    .tick input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; accent-color: var(--teal); }
+    .tick .req { color: #B3261E; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+    .tick small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+    .sigbox { margin-top: 14px; }
+    .sigbox input { font: 500 1.15rem var(--font-body); }
+    .sigprev { font: italic 600 1.5rem var(--font-head); color: var(--navy); min-height: 2rem; margin-top: 6px; border-bottom: 1px solid #C7CDD8; padding-bottom: 4px; }
+    .state { text-align: center; padding: 26px 6px; }
+    .done { text-align: center; padding: 10px 4px 4px; }
+    .done .ok { width: 56px; height: 56px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 30px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .done ul { text-align: left; max-width: 520px; margin: 14px auto; padding-left: 20px; }
+    .preview-bar { background: var(--gold); color: var(--navy); text-align: center; font-weight: 600; font-size: .85rem; padding: 8px 12px; }
+    .ft { border-top: 1px solid #E3E6EC; padding: 14px 20px 20px; font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.6; }
+    .err { display: none; margin-top: 12px; }
+    .err.show { display: block; }
+  </style>
+</head>
+<body>
+  <div id="pv"></div>
+  <div class="doc">
+    <header class="hd"><div class="brand">Accounted4Tax</div><div class="ref" id="ref"></div></header>
+    <main class="body" id="main"><p>Loading your engagement letter…</p></main>
+    <footer class="ft">Accounted4Tax Ltd · Registered in England and Wales, company number 16438537 · Registered office 128 City Road, London EC1V 2NX · Not VAT registered</footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=14"></script>
+  <script>
+  (async function () {
+    const cfg = window.A4T_CONFIG;
+    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = (n) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(n || 0));
+    const fd = (d) => d ? new Date(String(d).length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const fdt = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+    const $ = (id) => document.getElementById(id);
+    const p = new URLSearchParams(location.search);
+    const token = p.get('t'), preview = p.get('preview') === '1';
+    const payKey = 'a4t-pay-' + String(token || '').slice(0, 12);
+
+    function state(title, text) {
+      $('main').innerHTML = `<div class="state"><h1 class="title" style="font-size:1.35rem">${esc(title)}</h1><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a></p></div>`;
+    }
+    async function call(fn, body) {
+      const res = await sb.functions.invoke(fn, { body });
+      if (res.error) {
+        let m = 'Something went wrong. Please try again.', code = '';
+        try { const b = await res.error.context.json(); if (b.error) { m = b.error.message; code = b.error.code; } } catch (_) {}
+        const e = new Error(m); e.code = code; throw e;
+      }
+      return res.data;
+    }
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) return state('Link not valid', 'This link is incomplete. Please use the link in your email.');
+
+    // the same markdown subset the PDF uses
+    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/`(.+?)`/g, '$1');
+    function mdToHtml(md) {
+      const lines = md.split('\n'); let html = '', para = [], list = null, n = 0;
+      const flushP = () => { if (para.length) { html += `<p>${para.map(inline).join('<br>')}</p>`; para = []; } };
+      const flushL = () => { if (list) { html += `</${list}>`; list = null; } };
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i].replace(/\s+$/, '');
+        if (!l.trim()) { flushP(); flushL(); continue; }
+        if (l.startsWith('### ')) { flushP(); flushL(); html += `<h4>${inline(l.slice(4))}</h4>`; continue; }
+        if (l.startsWith('## ')) { flushP(); flushL(); html += `<h3>${inline(l.slice(3))}</h3>`; continue; }
+        if (l.startsWith('|')) {
+          flushP(); flushL(); const rows = [];
+          while (i < lines.length && lines[i].startsWith('|')) { if (!/^\|[-| ]+\|$/.test(lines[i].trim())) rows.push(lines[i].trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim())); i++; }
+          i--; const [head, ...rs] = rows;
+          html += rs.map(r => `<div class="trow"><b>${inline(r[0])}</b>${r.slice(1).map((c, k) => `<div><i>${inline(head[k + 1] || '')}:</i> ${inline(c)}</div>`).join('')}</div>`).join('');
+          continue;
+        }
+        const li = l.match(/^\s*-\s+(.*)$/), oli = l.match(/^\s*\d+\.\s+(.*)$/);
+        if (li || oli) {
+          flushP(); const want = li ? 'ul' : 'ol';
+          if (list !== want) { flushL(); html += `<${want}>`; list = want; }
+          html += `<li>${inline((li || oli)[1])}</li>`; continue;
+        }
+        flushL(); para.push(l);
+      }
+      flushP(); flushL(); return html;
+    }
+
+    let L, Q;
+    try {
+      [L, Q] = await Promise.all([call('quote-accept', { action: 'loe', token, preview }), call('quote-public', { token, preview })]);
+    } catch (e) {
+      if (e.code === 'being_updated') return state('Quote being updated', esc(e.message));
+      return state('Quote unavailable', esc(e.message));
+    }
+    const q = Q.quote, lq = L.quote;
+    if (preview) $('pv').innerHTML = '<div class="preview-bar">Preview: this is the signing page your client sees. Signing is switched off in preview.</div>';
+    $('ref').textContent = `Quote ${lq.quote_number} · version ${lq.version}`;
+    document.title = `Accept and sign ${lq.quote_number} · Accounted4Tax`;
+
+    async function showDone(name, at, url, fresh) {
+      let link = url;
+      if (!link) { try { link = (await call('quote-accept', { action: 'download', token })).url; } catch (_) {} }
+      $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
+        <h1 class="title" style="font-size:1.4rem">${fresh ? 'Thank you' : 'Already accepted'}${name ? ', ' + esc(name.split(' ')[0]) : ''}</h1>
+        <p>Quote ${esc(lq.quote_number)} and your engagement letter were signed${name ? ' by ' + esc(name) : ''}${at ? ' on ' + esc(fdt(at)) : ''}.</p>
+        ${link ? `<p><a class="btn btn-teal" href="${esc(link)}">Download your signed copy (PDF)</a></p>` : ''}
+        <p class="hint">We have also emailed a copy to you.</p>
+        <ul><li><b>Payment:</b> we will take payment as you chose. ${fresh ? '' : ''}We will be in touch shortly if anything else is needed.</li>
+          <li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
+          <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li></ul>
+        <p class="hint">Questions? Reply to our email or call ${esc((Q.practice || {}).phone || '07563 811938')}.</p></div>`;
+    }
+
+    if (['accepted', 'paid'].includes(lq.status)) return showDone(L.accepted?.signed_name, L.accepted?.signed_at, null, false);
+    if (lq.status === 'expired' || q.status === 'expired') return state('This quote has expired', `Quote ${esc(lq.quote_number)} was valid until ${esc(fd(lq.expires_at))}. Please contact us and we will send you an updated quote.`);
+    if (lq.status === 'declined') return state('Quote declined', 'If you have changed your mind, please contact us.');
+
+    // ---------- page ----------
+    const R = Number(q.rolling_monthly || 0), ongoing = Number(q.ongoing_total), nowOneOff = Number(q.one_off_due_now);
+    const n = q.monthly_allowed ? Number(q.payments_count) : 0;
+    let pay = null;
+    try { pay = p.get('pay') || sessionStorage.getItem(payKey); } catch (_) { pay = p.get('pay'); }
+    if (!q.monthly_allowed) pay = 'one_off';
+
+    let html = `<h1 class="title">Accept and sign</h1>
+      <p class="lead">${esc(L.client.name)} · quote ${esc(lq.quote_number)}${lq.expires_at ? ' · valid until ' + esc(fd(lq.expires_at)) : ''}. <a href="q.html?t=${esc(token)}${preview ? '&preview=1' : ''}">View the quote again</a></p>
+      <div class="steps">${q.monthly_allowed ? '<span>1 · How you pay</span>' : ''}<span>${q.monthly_allowed ? 2 : 1} · Read the engagement letter</span><span>${q.monthly_allowed ? 3 : 2} · Sign</span></div>`;
+
+    if (q.monthly_allowed) {
+      const restN = n - 1;
+      html += `<section class="sec"><h2>How would you like to pay?</h2><div class="choice" id="choice">
+        <button type="button" class="opt" data-v="monthly"><span class="radio"></span><span><b>Pay monthly</b><span class="big">${money(nowOneOff + Number(q.monthly_amount) + R)} today</span>
+          <small>then ${restN} monthly payment${restN === 1 ? '' : 's'} of ${money(r2(Number(q.monthly_amount) + R))}${R ? `, then ${money(R)} a month until you cancel` : `; payments stop after ${esc(fd(q.last_payment_date))}`}.</small></span></button>
+        <button type="button" class="opt" data-v="one_off"><span class="radio"></span><span><b>Pay the year in full</b><span class="big">${money(nowOneOff + ongoing + R)} today</span>
+          <small>${R ? `Then ${money(R)} a month for your monthly plan until you cancel.` : 'One card payment.'}</small></span></button>
+      </div></section>`;
+    }
+
+    html += `<section class="sec"><h2>Your engagement letter</h2>
+      <p class="hint" style="margin:-2px 0 10px">Please read each part. Together with your quote they form our agreement. Tap a part to open it.</p>
+      ${L.loe.parts.map((part, i) => `<details class="part"${i === 0 ? ' open' : ''}><summary>${esc(part.title)}</summary><div class="txt">${mdToHtml(part.md)}</div></details>`).join('')}
+    </section>`;
+
+    html += `<section class="sec"><h2>Accept and sign</h2><div class="sign">
+      <p style="margin:0 0 6px;font-size:.92rem">${inline(L.loe.intro)}</p>
+      ${L.loe.items.map(it => `<label class="tick"><input type="checkbox" data-k="${it.key}"><span>${inline(it.text)} ${it.required ? '<span class="req">required</span>' : ''}${it.note ? `<small>${esc(it.note)}</small>` : ''}</span></label>`).join('')}
+      <div class="sigbox field"><label for="sig">Type your full name as your signature${L.client.company_name && lq.client_type === 'ltd' ? ` (for and on behalf of ${esc(L.client.company_name)})` : ''}</label>
+        <input id="sig" type="text" autocomplete="name" maxlength="120" placeholder="${esc(L.client.signer || 'Full name')}">
+        <div class="sigprev" id="sigprev" aria-hidden="true"></div>
+        <p class="hint" style="margin-top:6px">Your typed name, the date and time, and your device details will be recorded as your signature.</p></div>
+      <button type="button" class="btn btn-teal btn-block" id="go" style="margin-top:12px">Accept and sign</button>
+      <div class="alert alert-error err" id="err" role="alert"></div>
+    </div></section>`;
+    $('main').innerHTML = html;
+
+    // payment choice
+    const ch = $('choice');
+    const setPay = (v) => { pay = v; if (ch) ch.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x.dataset.v === v)); try { sessionStorage.setItem(payKey, v); } catch (_) {} };
+    if (ch) { ch.onclick = (e) => { const b = e.target.closest('[data-v]'); if (b) setPay(b.dataset.v); }; if (pay) setPay(pay); }
+    $('sig').oninput = () => { $('sigprev').textContent = $('sig').value; };
+
+    const showErr = (m) => { $('err').textContent = m; $('err').classList.toggle('show', !!m); };
+    $('go').onclick = async () => {
+      showErr('');
+      if (preview) return showErr('Preview only: signing is switched off here.');
+      if (q.monthly_allowed && !pay) { ch.scrollIntoView({ behavior: 'smooth', block: 'center' }); return showErr('Please choose how you would like to pay.'); }
+      const ticks = {}; document.querySelectorAll('.tick input').forEach(i => ticks[i.dataset.k] = i.checked);
+      const miss = L.loe.items.filter(i => i.required && !ticks[i.key]);
+      if (miss.length) return showErr('Please tick the boxes marked required.');
+      const name = $('sig').value.trim();
+      if (name.length < 3) { $('sig').focus(); return showErr('Please type your full name as your signature.'); }
+      const btn = $('go'); btn.disabled = true; btn.textContent = 'Signing…';
+      try {
+        const r = await call('quote-accept', { action: 'accept', token, quote_version: lq.version, fingerprint: L.fingerprint, signed_name: name, ticks, payment_option: pay || 'one_off' });
+        window.scrollTo(0, 0);
+        showDone(name, r.signed_at, r.download_url, true);
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Accept and sign';
+        if (e.code === 'already_accepted') return showDone(null, null, null, false);
+        showErr(e.message + (e.code === 'changed' ? ' ' : ''));
+      }
+    };
+  })();
+  </script>
+</body>
+</html>

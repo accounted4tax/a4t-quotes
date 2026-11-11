@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/app.css?v=13">
+  <link rel="stylesheet" href="assets/css/app.css?v=14">
 </head>
 <body>
   <header class="topbar">
@@ -101,11 +101,11 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/config.js?v=13"></script>
-  <script src="assets/js/app.js?v=13"></script>
-  <script src="assets/js/pricing.js?v=13"></script>
-  <script src="assets/js/quote-calc.js?v=13"></script>
-  <script src="assets/js/client-form.js?v=13"></script>
+  <script src="assets/js/config.js?v=14"></script>
+  <script src="assets/js/app.js?v=14"></script>
+  <script src="assets/js/pricing.js?v=14"></script>
+  <script src="assets/js/quote-calc.js?v=14"></script>
+  <script src="assets/js/client-form.js?v=14"></script>
   <script>
   (async function () {
     const session = await A4T.requireAdmin();
@@ -433,10 +433,18 @@
       } else {
         const canEdit = ['sent', 'viewed', 'expired', 'declined'].includes(quote.status);
         a.innerHTML = `<a class="btn btn-ghost" href="${previewUrl()}" target="_blank" rel="noopener">View as client</a>
+          ${['accepted', 'paid'].includes(quote.status) ? '<button type="button" class="btn btn-teal" id="b-signed">Signed PDF</button>' : ''}
           <button type="button" class="btn btn-ghost" id="b-pdf">PDF</button>
           ${['sent', 'viewed'].includes(quote.status) ? '<button type="button" class="btn btn-ghost" id="b-resend">Resend email</button>' : ''}
           ${canEdit ? '<button type="button" class="btn btn-teal" id="b-edit">Edit (new version)</button>' : ''}`;
         $('b-pdf').onclick = () => run($('b-pdf'), 'Building…', downloadPdf);
+        if ($('b-signed')) $('b-signed').onclick = () => run($('b-signed'), 'Opening…', async () => {
+          const { data: acc, error } = await A4T.sb.from('qs_acceptances').select('pdf_path').eq('quote_id', quote.id).order('signed_at', { ascending: false }).limit(1).maybeSingle();
+          if (error || !acc) throw new Error('No signed copy found.');
+          const { data, error: e2 } = await A4T.sb.storage.from('qs-signed-docs').createSignedUrl(acc.pdf_path, 300);
+          if (e2) throw e2;
+          window.open(data.signedUrl, '_blank');
+        });
         if ($('b-resend')) $('b-resend').onclick = () => run($('b-resend'), 'Sending…', async () => { if (!confirm(`Resend quote to ${client.email}?`)) return; await sendQuote(); });
         if ($('b-edit')) $('b-edit').onclick = () => run($('b-edit'), 'Opening…', async () => {
           const { error } = await A4T.sb.from('qs_quotes').update({ status: 'draft', version: (quote.version || 1) + 1 }).eq('id', quote.id);
@@ -469,7 +477,11 @@
     function header() {
       $('title').textContent = quote.quote_number ? `Quote ${quote.quote_number}` : 'New quote';
       $('subtitle').textContent = quote.quote_number ? `${STATUS_TXT[quote.status] || quote.status} · version ${quote.version}${quote.sent_at ? ' · sent ' + fd(quote.sent_at) : ''}${quote.expires_at ? ' · valid until ' + fd(quote.expires_at) : ''}` : '';
-      $('banner').innerHTML = !editable ? `<div class="alert alert-ok show">This quote is <b>${esc(STATUS_TXT[quote.status] || quote.status)}</b>, so it is locked. ${['sent', 'viewed', 'expired', 'declined'].includes(quote.status) ? 'Use “Edit (new version)” to change it; the client’s link stays the same.' : ''}</div>` : '';
+      $('banner').innerHTML = !editable ? `<div class="alert alert-ok show">This quote is <b>${esc(STATUS_TXT[quote.status] || quote.status)}</b>, so it is locked. ${['sent', 'viewed', 'expired', 'declined'].includes(quote.status) ? 'Use “Edit (new version)” to change it; the client’s link stays the same.' : ''}<span id="acc-line"></span></div>` : '';
+      if (['accepted', 'paid'].includes(quote.status)) A4T.sb.from('qs_acceptances').select('signed_name,signed_at,payment_option,consumer_start_now').eq('quote_id', quote.id).order('signed_at', { ascending: false }).limit(1).maybeSingle().then(({ data: a }) => {
+        if (!a || !$('acc-line')) return;
+        $('acc-line').innerHTML = `<br>Signed by <b>${esc(a.signed_name)}</b> on ${esc(new Date(a.signed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))} · ${a.payment_option === 'monthly' ? 'pays monthly' : 'pays in full'}${a.consumer_start_now === true ? ' · asked to start now' : a.consumer_start_now === false ? ' · <b>work starts after the 14-day cancellation period</b>' : ''}`;
+      });
     }
     function setEditable() {
       editable = quote.status === 'draft';
