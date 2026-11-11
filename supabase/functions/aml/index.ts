@@ -9,8 +9,8 @@
 //   { action: 'people', client_id }                           → contact + directors + PSCs (Companies House) with their status
 //   { action: 'request', client_id, person_name, person_role, email } → creates (or re-sends) the upload link email
 //   { action: 'docs', request_id }                            → the uploaded files (10-minute view links)
-//   { action: 'review', request_id, decision: 'verified'|'rejected', pep_check, sanctions_check, risk_rating, notes, reason }
-//        → verified: Practice Manager aml_records row; rejected: new link emailed with the reason
+//   { action: 'review', request_id, items:{photo_id:{ok,reason}, selfie:{…}, proof_of_address:{…}}, pep_check, sanctions_check, risk_rating, notes }
+//        → all ticked: CDD verified (Practice Manager aml_records row); any crossed: a new link asking ONLY for those, with each reason
 // INTERNAL (stripe-webhook, service key): { action: 'auto', quote_id } → first request for the client's contact person
 // Phase 7, 11 Nov 2026. Rules follow the GOV.UK proof of identity checklist (Bona Vacantia), adopted as practice policy.
 // deno-lint-ignore-file no-explicit-any
@@ -109,7 +109,17 @@ async function refreshClientStatus(client_id: string) {
   return status;
 }
 
-async function createRequest(c: any, person: { name: string; role: string; email: string }, opts: { quote_id?: string | null; reason?: string; by?: string }) {
+const ITEMS = ['photo_id', 'selfie', 'proof_of_address'];
+const ITEM_LABEL: Record<string, string> = { photo_id: 'Photo ID', selfie: 'Selfie holding your ID', proof_of_address: 'Proof of address' };
+const NEED_TEXT: Record<string, string> = {
+  photo_id: '<b>Photo ID</b> – a current passport, photocard driving licence (full, not provisional), national identity card, photographic CIS4 card or firearms/shotgun certificate.',
+  selfie: '<b>A selfie</b> – a clear photo of your face holding that same ID next to it.',
+  proof_of_address: "<b>Proof of address</b> in your name – for example a bank statement or utility bill dated within the last 3 months, or this year's council tax bill. Mobile phone bills and credit card statements are not accepted.",
+};
+
+async function createRequest(c: any, person: { name: string; role: string; email: string },
+  opts: { quote_id?: string | null; by?: string; needs?: string[]; item_reasons?: Record<string, string>; parent_request_id?: string }) {
+  const needs = (opts.needs && opts.needs.length ? opts.needs : ITEMS).filter((x) => ITEMS.includes(x));
   const S = await settings(['app_base_url', 'practice']);
   const base = String(S.app_base_url || 'https://accounted4tax.github.io/a4t-quotes').replace(/\/$/, '');
   const name = niceName(person.name);
@@ -117,25 +127,29 @@ async function createRequest(c: any, person: { name: string; role: string; email
   const { data: open } = await db.from('qs_aml_requests').select('*').eq('client_id', c.id).eq('status', 'requested').order('created_at', { ascending: false });
   let req = (open || []).find((r: any) => nameKey(r.person_name || '') === nameKey(name));
   const expires = new Date(Date.now() + 30 * 864e5).toISOString();
-  if (req) {
+  if (req && !opts.parent_request_id) {
     const { data } = await db.from('qs_aml_requests').update({ person_email: person.email, person_role: person.role, token_expires_at: expires, requested_at: new Date().toISOString() }).eq('id', req.id).select('*').single();
     req = data;
   } else {
     const { data, error } = await db.from('qs_aml_requests').insert({ client_id: c.id, quote_id: opts.quote_id || null, person_name: name, person_role: person.role, person_email: person.email,
-      upload_token: newToken(), status: 'requested', requested_at: new Date().toISOString(), token_expires_at: expires, notes: opts.reason ? `Re-requested: ${opts.reason}` : null }).select('*').single();
+      upload_token: newToken(), status: 'requested', requested_at: new Date().toISOString(), token_expires_at: expires,
+      needs, item_reasons: opts.item_reasons || null, parent_request_id: opts.parent_request_id || null,
+      notes: opts.item_reasons ? 'Asked again: ' + Object.entries(opts.item_reasons).map(([k, v]) => `${ITEM_LABEL[k]} – ${v}`).join('; ') : null }).select('*').single();
     if (error) throw new Error('request: ' + error.message);
     req = data;
   }
   const ltd = c.client_type === 'ltd', isContact = nameKey(name) === nameKey(c.full_name || '');
   const company = esc(c.company_name || '');
-  const reason = opts.reason
-    ? `Thank you for sending your documents. Unfortunately we could not accept them: <b>${esc(opts.reason)}</b>. Please upload them again using the button below.`
+  const again = opts.item_reasons && Object.keys(opts.item_reasons).length;
+  const reason = again
+    ? `Thank you for sending your documents. Unfortunately we could not accept ${Object.keys(opts.item_reasons!).length === 1 ? 'one of them' : 'some of them'}:</p><ul style="padding-left:20px;margin:0 0 12px">${Object.entries(opts.item_reasons!).map(([k, v]) => `<li><b>${esc(ITEM_LABEL[k])}</b>: ${esc(v)}</li>`).join('')}</ul><p>The other documents you sent have been accepted, so please upload <b>only ${Object.keys(opts.item_reasons!).length === 1 ? 'this one' : 'these'}</b> again.`
     : ltd && !isContact
       ? `Accounted4Tax Ltd acts as accountant for <b>${company}</b>. As ${esc(roleLabel(person.role) === 'client' ? 'a director' : 'a ' + roleLabel(person.role))} of ${company}, we need to confirm your identity.`
       : 'Thank you for choosing Accounted4Tax.';
   const sent = await sendEmail('aml_request_client', { email: person.email, name }, {
     person_first_name: esc(name.split(' ')[0] || 'there'), reason_line: reason,
     who_line: ltd ? 'the directors and owners of the companies we act for' : 'every new client',
+    needs_list: `<ol style="padding-left:20px;margin:0 0 12px">${(req.needs || needs).map((k: string) => `<li>${NEED_TEXT[k]}</li>`).join('')}</ol>`,
     upload_url: esc(`${base}/id.html?t=${req.upload_token}`), expires: esc(fdate(expires)), phone: esc((S.practice || {}).phone || '07563 811938'),
   }, { client_id: c.id, quote_id: opts.quote_id });
   await db.from('qs_events').insert({ source: opts.by ? 'admin' : 'system', event_type: 'aml_requested', client_id: c.id, quote_id: opts.quote_id || null,
@@ -183,6 +197,7 @@ Deno.serve(async (req) => {
       if (action === 'get') {
         const S = await settings(['aml_upload_instructions', 'practice']);
         return json({
+          needs: r.needs || ITEMS, item_reasons: r.item_reasons || null,
           person: { name: r.person_name, role: roleLabel(r.person_role) }, company: c.client_type === 'ltd' ? c.company_name : null, status: r.status,
           expired: r.status === 'requested' && r.token_expires_at && new Date(r.token_expires_at) < new Date(), expires_at: r.token_expires_at,
           instructions: S.aml_upload_instructions, phone: (S.practice || {}).phone || '07563 811938',
@@ -208,12 +223,17 @@ Deno.serve(async (req) => {
       }
 
       // submit
+      const needs: string[] = r.needs || ITEMS;
+      let prevSub: any = {};
+      if (r.parent_request_id) { const { data: pr } = await db.from('qs_aml_requests').select('submitted').eq('id', r.parent_request_id).maybeSingle(); prevSub = pr?.submitted || {}; }
+      if (!needs.includes('photo_id')) body.id_kind = prevSub.id_kind;
+      if (!needs.includes('proof_of_address')) { body.poa_kind = prevSub.poa_kind; body.poa_date = prevSub.poa_date; }
       const idKind = ID_KINDS.find((k) => k.k === body.id_kind), poaKind = POA_KINDS.find((k) => k.k === body.poa_kind);
       if (!idKind) return fail(400, 'id_kind', 'Please choose which photo ID you are uploading.');
       if (!poaKind) return fail(400, 'poa_kind', 'Please choose which proof of address you are uploading.');
       if (idKind.k === 'driving_licence' && poaKind.k === 'driving_licence') return fail(400, 'same', 'You cannot use the same document for photo ID and proof of address. Please choose a different proof of address.');
       let poaDate: Date | null = null;
-      if (poaKind.rule !== 'none') {
+      if (poaKind.rule !== 'none' && needs.includes('proof_of_address')) {
         poaDate = body.poa_date ? new Date(String(body.poa_date) + 'T00:00:00Z') : null;
         if (!poaDate || isNaN(+poaDate)) return fail(400, 'poa_date', 'Please enter the date on your proof of address.');
         if (poaDate > new Date(today().getTime() + 864e5)) return fail(400, 'poa_date', 'The date on your proof of address cannot be in the future.');
@@ -226,9 +246,10 @@ Deno.serve(async (req) => {
         if (!by[f.doc_type] || typeof f.path !== 'string' || !f.path.startsWith(prefix)) return fail(400, 'files', 'Something went wrong with an upload. Please try again.');
         by[f.doc_type].push(f);
       }
-      if (!by.photo_id.length) return fail(400, 'missing', 'Please add a photo of your ID.');
-      if (!by.selfie.length) return fail(400, 'missing', 'Please add your selfie holding your ID.');
-      if (!by.proof_of_address.length) return fail(400, 'missing', 'Please add your proof of address.');
+      for (const t of ITEMS) if (!needs.includes(t) && by[t].length) return fail(400, 'files', 'Something went wrong with an upload. Please reload the page.');
+      if (needs.includes('photo_id') && !by.photo_id.length) return fail(400, 'missing', 'Please add a photo of your ID.');
+      if (needs.includes('selfie') && !by.selfie.length) return fail(400, 'missing', 'Please add your selfie holding your ID.');
+      if (needs.includes('proof_of_address') && !by.proof_of_address.length) return fail(400, 'missing', 'Please add your proof of address.');
       for (const [t, list] of Object.entries(by)) if (list.length > MAX_FILES[t]) return fail(400, 'too_many', 'Too many files.');
       // the files must really be there
       const { data: listed } = await db.storage.from(BUCKET).list(prefix.replace(/\/$/, ''), { limit: 100 });
@@ -247,7 +268,7 @@ Deno.serve(async (req) => {
           mime_type: f.mime || null, size_bytes: Number(f.size) || null, doc_kind: kind, doc_date: f.doc_type === 'proof_of_address' ? (body.poa_date || null) : null,
           pm_document_id: pmDoc?.id || null });
       }
-      const submitted = { id_kind: idKind.k, id_label: idKind.l, poa_kind: poaKind.k, poa_label: poaKind.l, poa_date: body.poa_date || null, files: files.length, at: nowIso,
+      const submitted = { id_kind: idKind.k, id_label: idKind.l, poa_kind: poaKind.k, poa_label: poaKind.l, poa_date: body.poa_date || null, files: files.length, at: nowIso, items: needs,
         ip: (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || null, device: (req.headers.get('user-agent') || '').slice(0, 300) };
       await db.from('qs_aml_requests').update({ status: 'received', received_at: nowIso, submitted }).eq('id', r.id);
       await db.from('qs_events').insert({ source: 'client', event_type: 'aml_received', client_id: c.id, quote_id: r.quote_id, payload: { request_id: r.id, person: r.person_name } });
@@ -256,7 +277,10 @@ Deno.serve(async (req) => {
       const admin = typeof S.admin_notify_email === 'string' ? S.admin_notify_email : (S.admin_notify_email?.email || 'info@accounted4tax.co.uk');
       await sendEmail('aml_received_admin', { email: admin, name: 'Eduard' }, {
         person_name: esc(r.person_name || ''), role_label: esc(roleLabel(r.person_role)), client_display: esc(displayOf(c)),
-        doc_list: `<li>${esc(idKind.l)} (${by.photo_id.length} file${by.photo_id.length > 1 ? 's' : ''})</li><li>Selfie holding the ID</li><li>${esc(poaKind.l)}${poaDate ? ' – dated ' + esc(fdate(body.poa_date)) : ''} (${by.proof_of_address.length} file${by.proof_of_address.length > 1 ? 's' : ''})</li>`,
+        doc_list: [needs.includes('photo_id') ? `<li>${esc(idKind.l)} (${by.photo_id.length} file${by.photo_id.length > 1 ? 's' : ''})</li>` : '',
+          needs.includes('selfie') ? '<li>Selfie holding the ID</li>' : '',
+          needs.includes('proof_of_address') ? `<li>${esc(poaKind.l)}${poaDate ? ' – dated ' + esc(fdate(body.poa_date)) : ''} (${by.proof_of_address.length} file${by.proof_of_address.length > 1 ? 's' : ''})</li>` : '',
+          needs.length < 3 ? '<li>(the other documents were accepted earlier)</li>' : ''].join(''),
         warnings: 'Check the ID is in date, the name matches on both documents, the selfie matches the photo ID, and the address is a home address.',
       }, { client_id: c.id, quote_id: r.quote_id });
       return json({ received: true });
@@ -302,31 +326,71 @@ Deno.serve(async (req) => {
       return json({ request_id: r.request.id, email_ok: r.email_ok, email_error: r.email_error });
     }
 
-    if (action === 'docs') {
-      const { data: docs } = await db.from('qs_aml_documents').select('*').eq('request_id', body.request_id).order('created_at');
-      const out = [];
-      for (const d of docs || []) {
-        const { data: u } = await db.storage.from(BUCKET).createSignedUrl(d.storage_path, 600);
-        out.push({ id: d.id, doc_type: d.doc_type, doc_kind: d.doc_kind, doc_date: d.doc_date, file_name: d.file_name, mime: d.mime_type, url: u?.signedUrl || null });
+    // the documents that count for one person: for each item, the latest upload of it along the chain of links
+    async function effectiveDocs(requestId: string) {
+      const chain: any[] = [];
+      let id: string | null = requestId;
+      while (id && chain.length < 10) {
+        const { data: x } = await db.from('qs_aml_requests').select('id,parent_request_id,needs,review,received_at').eq('id', id).maybeSingle();
+        if (!x) break; chain.push(x); id = x.parent_request_id;
       }
-      const { data: r } = await db.from('qs_aml_requests').select('person_name,status,submitted,received_at').eq('id', body.request_id).maybeSingle();
-      return json({ request: r, docs: out });
+      const out: Record<string, { request_id: string; current: boolean; docs: any[]; earlier_ok: boolean }> = {};
+      for (const t of ITEMS) {
+        const src = chain.find((x) => (x.needs || ITEMS).includes(t));
+        if (!src) continue;
+        const { data: docs } = await db.from('qs_aml_documents').select('*').eq('request_id', src.id).eq('doc_type', t).order('created_at');
+        out[t] = { request_id: src.id, current: src.id === requestId, docs: docs || [], earlier_ok: src.id !== requestId };
+      }
+      return out;
+    }
+
+    if (action === 'docs') {
+      const eff = await effectiveDocs(body.request_id);
+      const items: any[] = [];
+      for (const t of ITEMS) {
+        const e = eff[t]; if (!e) continue;
+        const files = [];
+        for (const d of e.docs) {
+          const { data: u } = await db.storage.from(BUCKET).createSignedUrl(d.storage_path, 600);
+          files.push({ id: d.id, doc_kind: d.doc_kind, doc_date: d.doc_date, file_name: d.file_name, mime: d.mime_type, url: u?.signedUrl || null });
+        }
+        items.push({ item: t, label: ITEM_LABEL[t], current: e.current, accepted_earlier: e.earlier_ok, files });
+      }
+      const { data: r } = await db.from('qs_aml_requests').select('person_name,status,submitted,received_at,needs,review,item_reasons').eq('id', body.request_id).maybeSingle();
+      return json({ request: r, items });
     }
 
     if (action === 'review') {
       const { data: r } = await db.from('qs_aml_requests').select('*, client:clients(*)').eq('id', body.request_id).maybeSingle();
       if (!r) return fail(404, 'not_found', 'Request not found.');
+      if (r.status !== 'received') return fail(409, 'state', r.status === 'verified' ? 'Already verified.' : 'Documents have not been received yet.');
       const c: any = r.client;
       const nowIso = new Date().toISOString(), d = nowIso.slice(0, 10);
-      if (body.decision === 'rejected') {
-        const reason = String(body.reason || '').trim();
-        if (reason.length < 5) return fail(400, 'reason', 'Please say what was wrong, so the person knows what to upload.');
-        await db.from('qs_aml_requests').update({ status: 'rejected', reviewed_by: who, notes: reason }).eq('id', r.id);
-        const again = await createRequest(c, { name: r.person_name, role: r.person_role, email: r.person_email }, { reason, by: who });
-        return json({ rejected: true, new_request_id: again.request.id, email_ok: again.email_ok });
+      const needs: string[] = r.needs || ITEMS;
+      const items = body.items || {};
+      const decisions: Record<string, { ok: boolean; reason?: string }> = {};
+      for (const t of needs) {
+        const x = items[t];
+        if (!x || (x.ok !== true && x.ok !== false)) return fail(400, 'undecided', `Please tick or cross ${ITEM_LABEL[t].toLowerCase()}.`);
+        if (x.ok === false && String(x.reason || '').trim().length < 3) return fail(400, 'reason', `Please give a reason for ${ITEM_LABEL[t].toLowerCase()}, so the person knows what to send.`);
+        decisions[t] = x.ok ? { ok: true } : { ok: false, reason: String(x.reason).trim().slice(0, 300) };
       }
-      if (body.decision !== 'verified') return fail(400, 'decision', 'Choose verified or rejected.');
-      if (r.status !== 'received') return fail(409, 'state', 'Documents have not been received yet.');
+      const rejected = Object.entries(decisions).filter(([, v]) => !v.ok);
+      const eff = await effectiveDocs(r.id);
+      // tick / cross on the Practice Manager document records
+      for (const t of needs) {
+        const ids = (eff[t]?.docs || []).map((x: any) => x.pm_document_id).filter(Boolean);
+        if (ids.length) await db.from('documents').update(decisions[t].ok ? { verified: true, verified_at: nowIso } : { verified: false, notes: `Not accepted: ${decisions[t].reason}` }).in('id', ids);
+      }
+      if (rejected.length) {
+        await db.from('qs_aml_requests').update({ status: 'rejected', reviewed_by: who, review: decisions,
+          notes: 'Not accepted: ' + rejected.map(([k, v]) => `${ITEM_LABEL[k]} – ${v.reason}`).join('; ') }).eq('id', r.id);
+        const again = await createRequest(c, { name: r.person_name, role: r.person_role, email: r.person_email },
+          { by: who, needs: rejected.map(([k]) => k), item_reasons: Object.fromEntries(rejected.map(([k, v]) => [k, v.reason!])), parent_request_id: r.id, quote_id: r.quote_id });
+        await db.from('qs_events').insert({ source: 'admin', event_type: 'aml_rejected', client_id: c.id, quote_id: r.quote_id, payload: { request_id: r.id, person: r.person_name, by: who, items: decisions } });
+        return json({ rejected: true, asked_again: rejected.map(([k]) => k), new_request_id: again.request.id, email_ok: again.email_ok });
+      }
+      // all accepted → CDD verified
       const sub = r.submitted || {};
       const pep = ['no', 'yes', 'close_associate'].includes(body.pep_check) ? body.pep_check : 'no';
       const sanc = ['not_checked', 'clear', 'match'].includes(body.sanctions_check) ? body.sanctions_check : 'not_checked';
@@ -335,7 +399,7 @@ Deno.serve(async (req) => {
       const rec = { client_id: c.id, director_name: r.person_name, id_type: sub.id_label || sub.id_kind || null, id_verified: true, id_verified_date: d,
         address_type: sub.poa_label || sub.poa_kind || null, address_verified: true, address_verified_date: d, pep_check: pep, sanctions_check: sanc,
         sanctions_check_date: sanc === 'not_checked' ? null : d, risk_rating: risk, review_date: review.toISOString().slice(0, 10),
-        notes: [body.notes, `Verified online by ${who} on ${d}.${sub.poa_date ? `; proof of address dated ${sub.poa_date}` : ''}.`].filter(Boolean).join(' '),
+        notes: [body.notes, `Verified online by ${who} on ${d}${sub.poa_date ? `; proof of address dated ${sub.poa_date}` : ''}.`].filter(Boolean).join(' '),
         qs_aml_request_id: r.id };
       const { data: existing } = await db.from('aml_records').select('id,director_name').eq('client_id', c.id);
       const same = (existing || []).find((x: any) => nameKey(x.director_name || '') === nameKey(r.person_name || ''));
@@ -343,10 +407,7 @@ Deno.serve(async (req) => {
         ? await db.from('aml_records').update(rec).eq('id', same.id).select('id').single()
         : await db.from('aml_records').insert(rec).select('id').single();
       if (error) throw new Error('aml_records: ' + error.message);
-      await db.from('qs_aml_requests').update({ status: 'verified', verified_at: nowIso, reviewed_by: who, pm_aml_record_id: saved.id }).eq('id', r.id);
-      const { data: docs } = await db.from('qs_aml_documents').select('pm_document_id').eq('request_id', r.id);
-      const ids = (docs || []).map((x: any) => x.pm_document_id).filter(Boolean);
-      if (ids.length) await db.from('documents').update({ verified: true, verified_at: nowIso }).in('id', ids);
+      await db.from('qs_aml_requests').update({ status: 'verified', verified_at: nowIso, reviewed_by: who, review: decisions, pm_aml_record_id: saved.id }).eq('id', r.id);
       await db.from('qs_events').insert({ source: 'admin', event_type: 'aml_verified', client_id: c.id, quote_id: r.quote_id, payload: { request_id: r.id, person: r.person_name, by: who, risk, pep, sanctions: sanc } });
       const status = await refreshClientStatus(c.id);
       return json({ verified: true, client_aml_status: status });

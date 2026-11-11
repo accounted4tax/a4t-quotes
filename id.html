@@ -150,15 +150,28 @@
         <div class="alert alert-error err" id="err" role="alert"></div>
       </div>`;
 
+    // a second link asks only for the documents that were not accepted
+    const need = (t) => (D.needs || ['photo_id', 'selfie', 'proof_of_address']).includes(t);
+    const secOf = { photo_id: 's1', selfie: 's2', proof_of_address: 's3' };
+    let n = 0;
+    for (const [t, id] of Object.entries(secOf)) {
+      const sec = $(id);
+      if (!need(t)) { sec.remove(); continue; }
+      sec.querySelector('.n').textContent = ++n;
+      const why = D.item_reasons && D.item_reasons[t];
+      if (why) sec.querySelector('h2').insertAdjacentHTML('afterend', `<div class="alert alert-error show" style="display:block;margin:6px 0 8px;font-size:.88rem"><b>Please send this again:</b> ${esc(why)}</div>`);
+    }
+    if (D.item_reasons) $('main').querySelector('.lead').insertAdjacentHTML('afterend', '<p class="hint" style="margin:-6px 0 6px">The other documents you sent have been accepted – you only need to send the one' + (n > 1 ? 's' : '') + ' below.</p>');
+
     const showErr = (m) => { $('err').textContent = m; $('err').classList.toggle('show', !!m); if (m) $('err').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     const pk = $('pk');
-    pk.onchange = () => {
+    if (pk) pk.onchange = () => {
       const k = D.poa_kinds.find(x => x.k === pk.value);
       $('pdw').style.display = k && k.rule !== 'none' ? '' : 'none';
       $('pdh').textContent = k && k.earliest ? `Must be ${k.rule_text}: on or after ${fdLong(k.earliest)}.` : '';
       if (k && k.earliest) $('pd').min = k.earliest;
     };
-    $('pd').max = new Date().toISOString().slice(0, 10);
+    if ($('pd')) $('pd').max = new Date().toISOString().slice(0, 10);
 
     // make big phone photos smaller before uploading (keeps uploads fast and under 10 MB)
     async function shrink(file) {
@@ -241,18 +254,22 @@
 
     $('go').onclick = async () => {
       showErr('');
-      if (!$('idk').value) return showErr('Please choose which photo ID you are uploading.');
-      if (!files.photo_id.some(f => f.done)) return showErr('Please add a photo of your ID.');
-      if (!files.selfie.some(f => f.done)) return showErr('Please add your selfie holding your ID.');
-      if (!pk.value) return showErr('Please choose which proof of address you are uploading.');
-      const k = D.poa_kinds.find(x => x.k === pk.value);
-      if (k.rule !== 'none' && !$('pd').value) return showErr('Please enter the date on your proof of address.');
-      if (!files.proof_of_address.some(f => f.done)) return showErr('Please add your proof of address.');
+      if (need('photo_id')) {
+        if (!$('idk').value) return showErr('Please choose which photo ID you are uploading.');
+        if (!files.photo_id.some(f => f.done)) return showErr('Please add a photo of your ID.');
+      }
+      if (need('selfie') && !files.selfie.some(f => f.done)) return showErr('Please add your selfie holding your ID.');
+      if (need('proof_of_address')) {
+        if (!pk.value) return showErr('Please choose which proof of address you are uploading.');
+        const k = D.poa_kinds.find(x => x.k === pk.value);
+        if (k.rule !== 'none' && !$('pd').value) return showErr('Please enter the date on your proof of address.');
+        if (!files.proof_of_address.some(f => f.done)) return showErr('Please add your proof of address.');
+      }
       if (Object.values(files).some(l => l.some(f => !f.done))) return showErr('Please wait until all uploads have finished.');
       if (!$('conf').checked) return showErr('Please tick to confirm the documents are yours.');
       const b = $('go'); b.disabled = true; b.textContent = 'Sending…';
       try {
-        await call({ action: 'submit', id_kind: $('idk').value, poa_kind: pk.value, poa_date: $('pd').value || null,
+        await call({ action: 'submit', id_kind: need('photo_id') ? $('idk').value : null, poa_kind: need('proof_of_address') ? pk.value : null, poa_date: need('proof_of_address') ? ($('pd').value || null) : null,
           files: Object.entries(files).flatMap(([t, l]) => l.map(f => ({ doc_type: t, path: f.path, file_name: f.name, mime: f.mime, size: f.size }))) });
         window.scrollTo(0, 0);
         $('main').innerHTML = `<div class="done"><div class="ok">✓</div><h1 class="title" style="font-size:1.4rem">Thank you, ${esc(first)}</h1><p>We have received your documents and will check them shortly. We will be in touch if we need anything else.</p><p class="hint">Questions? Reply to our email or call ${esc(D.phone)}.</p></div>`;
