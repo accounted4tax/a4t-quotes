@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Identity check · Accounted4Tax</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css?v=15">
+  <style>
+    body { background: #E9ECF2; }
+    .doc { max-width: 760px; margin: 0 auto; background: #fff; min-height: 100vh; box-shadow: 0 0 0 1px rgba(20,33,61,.04), 0 10px 40px rgba(20,33,61,.08); }
+    @media (min-width: 800px) { .doc { margin: 24px auto; min-height: 0; border-radius: 6px; overflow: hidden; } }
+    .hd { background: var(--navy); color: #fff; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .hd .brand { font: 700 1.4rem var(--font-head); }
+    .hd .ref { font-size: .82rem; color: #D5DAE5; }
+    .body { padding: 22px 20px 28px; }
+    .title { font: 700 1.6rem var(--font-head); color: var(--navy); margin: 0 0 6px; }
+    .lead { color: #4a5568; margin: 0 0 16px; }
+    .steps { display: flex; gap: 8px; margin: 0 0 18px; flex-wrap: wrap; }
+    .steps span { font-size: .78rem; font-weight: 600; color: var(--navy); background: #F1F3F7; border-radius: 99px; padding: 5px 10px; }
+    .sec { margin-top: 22px; }
+    .sec > h2 { font: 700 1.08rem var(--font-body); color: var(--navy); margin: 0 0 8px; }
+    .choice { display: grid; gap: 10px; }
+    @media (min-width: 560px) { .choice { grid-template-columns: 1fr 1fr; } }
+    .opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid #DCE0E8; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; text-align: left; font: inherit; color: inherit; width: 100%; }
+    .opt.on { border-color: var(--teal); background: #F4FAF9; }
+    .opt .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C7CDD8; flex: 0 0 20px; margin-top: 2px; }
+    .opt.on .radio { border: 6px solid var(--teal); }
+    .opt b { color: var(--navy); display: block; }
+    .opt .big { font: 700 1.1rem var(--font-body); color: var(--navy); margin: 3px 0 2px; }
+    .opt small { color: var(--muted); display: block; font-size: .8rem; }
+    details.part { border: 1px solid #E3E6EC; border-radius: 10px; margin-bottom: 10px; background: #fff; }
+    details.part > summary { cursor: pointer; padding: 13px 14px; font-weight: 600; color: var(--navy); list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+    details.part > summary::-webkit-details-marker { display: none; }
+    details.part > summary::after { content: 'Read'; font-size: .78rem; color: var(--teal); font-weight: 600; white-space: nowrap; }
+    details.part[open] > summary::after { content: 'Hide'; }
+    details.part .txt { padding: 2px 16px 14px; font-size: .9rem; color: #2a3346; line-height: 1.55; }
+    .txt h3 { font: 700 .98rem var(--font-body); color: var(--navy); margin: 14px 0 6px; }
+    .txt h4 { font: 700 .92rem var(--font-body); color: var(--navy); margin: 12px 0 4px; }
+    .txt p { margin: 0 0 9px; }
+    .txt ul, .txt ol { margin: 0 0 9px; padding-left: 20px; }
+    .txt li { margin: 3px 0; }
+    .txt .trow { border-top: 1px solid #E3E6EC; padding: 8px 0; }
+    .txt .trow b { color: var(--navy); }
+    .sign { background: #F7F8FA; border: 1px solid #E3E6EC; border-radius: 12px; padding: 16px; }
+    .tick { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid #E8EBF0; font-size: .92rem; cursor: pointer; }
+    .tick:last-of-type { border-bottom: 0; }
+    .tick input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; accent-color: var(--teal); }
+    .tick .req { color: #B3261E; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+    .tick small { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+    .sigbox { margin-top: 14px; }
+    .sigbox input { font: 500 1.15rem var(--font-body); }
+    .sigprev { font: italic 600 1.5rem var(--font-head); color: var(--navy); min-height: 2rem; margin-top: 6px; border-bottom: 1px solid #C7CDD8; padding-bottom: 4px; }
+    .state { text-align: center; padding: 26px 6px; }
+    .done { text-align: center; padding: 10px 4px 4px; }
+    .done .ok { width: 56px; height: 56px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 30px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .done ul { text-align: left; max-width: 520px; margin: 14px auto; padding-left: 20px; }
+    .preview-bar { background: var(--gold); color: var(--navy); text-align: center; font-weight: 600; font-size: .85rem; padding: 8px 12px; }
+    .ft { border-top: 1px solid #E3E6EC; padding: 14px 20px 20px; font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.6; }
+    .err { display: none; margin-top: 12px; }
+    .err.show { display: block; }
+      .item { border: 1px solid #E3E6EC; border-radius: 12px; padding: 14px; margin-top: 14px; background: #fff; }
+    .item h2 { font: 700 1.02rem var(--font-body); color: var(--navy); margin: 0 0 4px; display: flex; gap: 8px; align-items: center; }
+    .item h2 .n { width: 24px; height: 24px; border-radius: 50%; background: var(--navy); color: #fff; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; }
+    .item.ok h2 .n { background: var(--teal); }
+    .item p.hint { margin: 0 0 8px; }
+    .item select, .item input[type=date] { width: 100%; }
+    .files { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .thumb { width: 84px; height: 84px; border-radius: 8px; border: 1px solid #DCE0E8; background: #F1F3F7 center/cover no-repeat; position: relative; display: flex; align-items: center; justify-content: center; font-size: .7rem; color: var(--muted); text-align: center; overflow: hidden; }
+    .thumb .x { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(20,33,61,.8); color: #fff; font-size: 14px; line-height: 22px; cursor: pointer; }
+    .thumb .bar { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--teal); width: 0; transition: width .2s; }
+    .addbtn { display: inline-flex; align-items: center; gap: 6px; }
+    .addbtn input { display: none; }
+    .rules { font-size: .82rem; color: #4a5568; }
+    .rules ul { margin: 4px 0 0; padding-left: 18px; }
+    .no { color: #B3261E; }
+    .mt { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="doc">
+    <header class="hd"><div class="brand">Accounted4Tax</div><div class="ref">Identity check</div></header>
+    <main class="body" id="main"><p>Loading…</p></main>
+    <footer class="ft">Accounted4Tax Ltd · Registered in England and Wales, company number 16438537 · Registered office 128 City Road, London EC1V 2NX · AAT licensed practice. Your documents are stored privately and used only for identity checks under the Money Laundering Regulations 2017.</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/config.js?v=15"></script>
+  <script>
+  (async function () {
+    const cfg = window.A4T_CONFIG;
+    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const $ = (id) => document.getElementById(id);
+    const token = new URLSearchParams(location.search).get('t');
+    const state = (title, text, phone) => { $('main').innerHTML = `<div class="state"><h1 class="title" style="font-size:1.35rem">${esc(title)}</h1><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a>${phone ? ' or call ' + esc(phone) : ''}.</p></div>`; };
+    async function call(body) {
+      const res = await sb.functions.invoke('aml', { body: { ...body, token } });
+      if (res.error) {
+        let m = 'Something went wrong. Please try again.', code = '';
+        try { const b = await res.error.context.json(); if (b.error) { m = b.error.message; code = b.error.code; } } catch (_) {}
+        const e = new Error(m); e.code = code; throw e;
+      }
+      return res.data;
+    }
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) return state('Link not valid', 'This link is incomplete. Please use the button in your email.');
+    let D;
+    try { D = await call({ action: 'get' }); } catch (e) { return state('Link not valid', esc(e.message)); }
+    if (['received', 'verified'].includes(D.status)) return state('Thank you', 'We have received your documents. We will let you know if we need anything else.', D.phone);
+    if (D.status !== 'requested') return state('This link is no longer active', 'Please contact us and we will send you a new link.', D.phone);
+    if (D.expired) return state('This link has expired', 'Please contact us and we will send you a new link.', D.phone);
+
+    const first = String(D.person.name || '').split(' ')[0];
+    const files = { photo_id: [], selfie: [], proof_of_address: [] };
+    const fdLong = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    $('main').innerHTML = `
+      <h1 class="title">Identity check</h1>
+      <p class="lead">Hello ${esc(first)}. ${D.company ? `As ${esc(D.person.role === 'client' ? 'a director' : 'a ' + D.person.role)} of <b>${esc(D.company)}</b>, w` : 'W'}e need to confirm your identity before we can start work. This takes about 5 minutes. You can take the photos with your phone camera.</p>
+
+      <section class="item" id="s1"><h2><span class="n">1</span>Photo ID</h2>
+        <p class="hint">A clear photo of the whole document, all four corners showing. For a driving licence or ID card, add the front and the back.</p>
+        <div class="field"><label for="idk">Which document?</label><select id="idk"><option value="">Choose…</option>${D.id_kinds.map(k => `<option value="${k.k}">${esc(k.l)}</option>`).join('')}</select></div>
+        <div class="field mt"><label for="idx">Expiry date on the document</label><input type="date" id="idx"></div>
+        <div class="files" id="f-photo_id"></div>
+        <label class="btn btn-ghost addbtn mt">+ Add photo or PDF<input type="file" accept="image/*,application/pdf" data-t="photo_id"></label>
+      </section>
+
+      <section class="item" id="s2"><h2><span class="n">2</span>Selfie holding your ID</h2>
+        <p class="hint">Hold the same ID next to your face. Your face and the photo on the ID must both be clear.</p>
+        <div class="files" id="f-selfie"></div>
+        <label class="btn btn-ghost addbtn mt">+ Take selfie<input type="file" accept="image/*" capture="user" data-t="selfie"></label>
+      </section>
+
+      <section class="item" id="s3"><h2><span class="n">3</span>Proof of address</h2>
+        <p class="hint">In your name, showing your home address. All pages that show your name and address.</p>
+        <div class="field"><label for="pk">Which document?</label><select id="pk"><option value="">Choose…</option>${D.poa_kinds.map(k => `<option value="${k.k}">${esc(k.l)}${k.rule_text ? ' – ' + esc(k.rule_text) : ''}</option>`).join('')}</select></div>
+        <div class="field mt" id="pdw" style="display:none"><label for="pd">Date on the document</label><input type="date" id="pd"><p class="hint" id="pdh" style="margin:4px 0 0"></p></div>
+        <div class="files" id="f-proof_of_address"></div>
+        <label class="btn btn-ghost addbtn mt">+ Add photo or PDF<input type="file" accept="image/*,application/pdf" data-t="proof_of_address"></label>
+        <div class="rules mt"><b class="no">Not accepted:</b> ${D.not_accepted.map(esc).join(' · ')}.</div>
+      </section>
+
+      <div class="sign" style="margin-top:16px">
+        <label class="tick" style="border:0"><input type="checkbox" id="conf"><span>I confirm these are genuine documents belonging to me, ${esc(D.person.name)}.</span></label>
+        <button type="button" class="btn btn-teal btn-block" id="go" style="margin-top:8px">Send my documents</button>
+        <div class="alert alert-error err" id="err" role="alert"></div>
+      </div>`;
+
+    const showErr = (m) => { $('err').textContent = m; $('err').classList.toggle('show', !!m); if (m) $('err').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    const pk = $('pk');
+    pk.onchange = () => {
+      const k = D.poa_kinds.find(x => x.k === pk.value);
+      $('pdw').style.display = k && k.rule !== 'none' ? '' : 'none';
+      $('pdh').textContent = k && k.earliest ? `Must be ${k.rule_text}: on or after ${fdLong(k.earliest)}.` : '';
+      if (k && k.earliest) $('pd').min = k.earliest;
+    };
+    $('pd').max = new Date().toISOString().slice(0, 10);
+    $('idx').min = new Date().toISOString().slice(0, 10);
+
+    // make big phone photos smaller before uploading (keeps uploads fast and under 10 MB)
+    async function shrink(file) {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1.5e6) return file;
+      try {
+        const img = await createImageBitmap(file);
+        const s = Math.min(1, 2400 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+        return blob ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
+      } catch (_) { return file; }
+    }
+    function draw(t) {
+      $('f-' + t).innerHTML = files[t].map((f, i) => `<div class="thumb" style="${f.preview ? `background-image:url('${f.preview}')` : ''}">${f.preview ? '' : esc(f.name.slice(0, 18))}<button class="x" data-t="${t}" data-i="${i}" aria-label="Remove">×</button><div class="bar" style="width:${f.done ? 100 : f.progress || 10}%"></div></div>`).join('');
+      $('s' + ({ photo_id: 1, selfie: 2, proof_of_address: 3 })[t]).classList.toggle('ok', files[t].some(f => f.done));
+    }
+    document.addEventListener('click', (e) => { const b = e.target.closest('.x'); if (!b) return; files[b.dataset.t].splice(+b.dataset.i, 1); draw(b.dataset.t); });
+    document.querySelectorAll('input[type=file]').forEach(inp => inp.onchange = async () => {
+      const t = inp.dataset.t, raw = inp.files[0]; inp.value = '';
+      if (!raw) return;
+      showErr('');
+      if (files[t].length >= D.max_files[t]) return showErr(`You can add up to ${D.max_files[t]} file${D.max_files[t] > 1 ? 's' : ''} here. Remove one first.`);
+      let f = await shrink(raw);
+      const mime = (f.type || (/\.heic$/i.test(f.name) ? 'image/heic' : '')).toLowerCase();
+      const entry = { name: f.name, mime, size: f.size, preview: /^image\/(jpeg|png|webp)$/.test(mime) ? URL.createObjectURL(f) : null, progress: 30 };
+      files[t].push(entry); draw(t);
+      try {
+        const u = await call({ action: 'upload_url', doc_type: t, mime, size: f.size });
+        const up = await sb.storage.from('qs-aml-docs').uploadToSignedUrl(u.path, u.token, f, { contentType: mime });
+        if (up.error) throw new Error('The upload did not finish. Please try again.');
+        entry.path = u.path; entry.done = true; draw(t);
+      } catch (e) { files[t].splice(files[t].indexOf(entry), 1); draw(t); showErr(e.message); }
+    });
+
+    $('go').onclick = async () => {
+      showErr('');
+      if (!$('idk').value) return showErr('Please choose which photo ID you are uploading.');
+      if (!$('idx').value) return showErr('Please enter the expiry date on your photo ID.');
+      if (!files.photo_id.some(f => f.done)) return showErr('Please add a photo of your ID.');
+      if (!files.selfie.some(f => f.done)) return showErr('Please add your selfie holding your ID.');
+      if (!pk.value) return showErr('Please choose which proof of address you are uploading.');
+      const k = D.poa_kinds.find(x => x.k === pk.value);
+      if (k.rule !== 'none' && !$('pd').value) return showErr('Please enter the date on your proof of address.');
+      if (!files.proof_of_address.some(f => f.done)) return showErr('Please add your proof of address.');
+      if (Object.values(files).some(l => l.some(f => !f.done))) return showErr('Please wait until all uploads have finished.');
+      if (!$('conf').checked) return showErr('Please tick to confirm the documents are yours.');
+      const b = $('go'); b.disabled = true; b.textContent = 'Sending…';
+      try {
+        await call({ action: 'submit', id_kind: $('idk').value, id_expiry: $('idx').value, poa_kind: pk.value, poa_date: $('pd').value || null,
+          files: Object.entries(files).flatMap(([t, l]) => l.map(f => ({ doc_type: t, path: f.path, file_name: f.name, mime: f.mime, size: f.size }))) });
+        window.scrollTo(0, 0);
+        $('main').innerHTML = `<div class="done"><div class="ok">✓</div><h1 class="title" style="font-size:1.4rem">Thank you, ${esc(first)}</h1><p>We have received your documents and will check them shortly. We will be in touch if we need anything else.</p><p class="hint">Questions? Reply to our email or call ${esc(D.phone)}.</p></div>`;
+      } catch (e) { b.disabled = false; b.textContent = 'Send my documents'; showErr(e.message); }
+    };
+  })();
+  </script>
+</body>
+</html>

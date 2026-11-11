@@ -167,6 +167,11 @@ async function checkoutCompleted(s: any) {
     payload: { session: s.id, mode: s.mode, amount: s.amount_total, subscription: s.subscription || null } });
   try { await welcomeEmails({ ...q, ...upd }, s, !!s.livemode); }
   catch (e) { await db.from('qs_events').insert({ source: 'system', event_type: 'welcome_email_error', client_id: q.client_id, quote_id: q.id, payload: { error: String((e as Error).message || e).slice(0, 300) } }); }
+  // identity check link for the contact person (directors and PSCs are requested later from the Practice Manager)
+  try {
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/aml`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auto', quote_id: q.id }) });
+  } catch (_) { /* logged by the aml function */ }
   return 'paid';
 }
 
