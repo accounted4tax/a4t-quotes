@@ -410,7 +410,21 @@ Deno.serve(async (req) => {
       await db.from('qs_aml_requests').update({ status: 'verified', verified_at: nowIso, reviewed_by: who, review: decisions, pm_aml_record_id: saved.id }).eq('id', r.id);
       await db.from('qs_events').insert({ source: 'admin', event_type: 'aml_verified', client_id: c.id, quote_id: r.quote_id, payload: { request_id: r.id, person: r.person_name, by: who, risk, pep, sanctions: sanc } });
       const status = await refreshClientStatus(c.id);
-      return json({ verified: true, client_aml_status: status });
+      // everyone asked is verified → tell the client once that work can start
+      let client_emailed = false;
+      if (status === 'verified') {
+        const { data: sent } = await db.from('qs_email_log').select('id').eq('client_id', c.id).eq('template_key', 'cdd_verified_client').eq('status', 'sent').limit(1);
+        if (!sent?.length && c.email) {
+          const S = await settings(['practice']);
+          const res = await sendEmail('cdd_verified_client', { email: c.email, name: c.full_name }, {
+            client_first_name: esc(String(c.full_name || '').trim().split(/\s+/)[0] || 'there'),
+            company_for: c.client_type === 'ltd' && c.company_name ? ' for ' + esc(c.company_name) : '',
+            phone: esc((S.practice || {}).phone || '07563 811938'),
+          }, { client_id: c.id, quote_id: r.quote_id });
+          client_emailed = res.ok;
+        }
+      }
+      return json({ verified: true, client_aml_status: status, client_emailed });
     }
 
     return fail(400, 'bad_request', 'Unknown action.');
