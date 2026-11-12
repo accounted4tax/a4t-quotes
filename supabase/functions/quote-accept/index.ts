@@ -6,6 +6,7 @@
 //          Practice Manager (loes + documents), marks the quote accepted and emails the client and Eduard.
 //   { action: 'download', token }           → a fresh 1-hour link to the signed PDF (accepted quotes only)
 // Phase 5, 11 Nov 2026. Secrets: BREVO_API_KEY.
+// 12 Nov 2026: simple online services (schedule D10) get the short letter ([IF online] in the templates), no quote PDF and no client email here.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { assembleLoe, sha256Hex, type Templates } from './loe.ts';
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
       return json({
         quote: { quote_number: q.quote_number, version: q.version, status: q.status, expires_at: q.expires_at, monthly_allowed: q.monthly_allowed, client_type: c.client_type },
         client: { name: clientDisplay, signer: c.full_name, company_name: c.company_name },
-        loe: { parts: loe.parts, intro: loe.intro, items: loe.items, schedules: loe.schedules, consumer: loe.consumer, template_version: loe.template_version },
+        loe: { parts: loe.parts, intro: loe.intro, items: loe.items, schedules: loe.schedules, consumer: loe.consumer, online: loe.online, template_version: loe.template_version },
         fingerprint, accepted,
       });
     }
@@ -128,7 +129,8 @@ Deno.serve(async (req) => {
 
     // quote PDF (same as the one emailed) + letter + acceptance record
     const link = `${base}/q.html?t=${q.access_token}`;
-    const quotePdf = await buildQuotePdf({
+    // simple online services: no quote document (the fee is in the letter)
+    const quotePdf = loeFinal.online ? null : await buildQuotePdf({
       practice, accept_url: link, quote: q,
       client: { client_type: c.client_type, contact: c.full_name, company_name: c.company_name, trading_name: c.trading_name, crn: c.crn, name: clientDisplay },
       lines: lines.map((l: any) => ({ description: l.description, about: services[l.service_id]?.description || null, period_label: l.period_label, quantity: l.quantity, unit_label: l.unit_label,
@@ -178,7 +180,7 @@ Deno.serve(async (req) => {
         start_now_line: loeFinal.consumer ? (ticks.start_now ? 'Consumer: asked us to START NOW within the 14-day cancellation period.' : 'Consumer: did NOT ask to start within 14 days — work starts after the cancellation period.') : 'Company client (no consumer cancellation period).',
       };
       const layout = (inner: string) => `<div style="background:#F5F6F8;padding:24px 12px"><div style="font-family:Arial,Helvetica,sans-serif;color:#14213D;max-width:560px;margin:0 auto;font-size:15px;line-height:1.55"><div style="background:#14213D;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-size:18px;font-weight:bold">Accounted4Tax</div><div style="background:#fff;padding:22px 18px;border-radius:0 0 10px 10px">${inner}</div><p style="color:#4A5568;font-size:12px;text-align:center;margin-top:14px">${esc(practice.name || 'Accounted4Tax Ltd')} · ${esc(practice.registered_office || '128 City Road, London EC1V 2NX')} · ${esc(practice.email || 'info@accounted4tax.co.uk')}${practice.phone ? ' · ' + esc(practice.phone) : ''}</p></div></div>`;
-      const att = [{ name: `Engagement letter and quote ${q.quote_number} (signed).pdf`, content: b64(pdf) }];
+      const att = [{ name: loeFinal.online ? `Engagement letter ${q.quote_number} (signed).pdf` : `Engagement letter and quote ${q.quote_number} (signed).pdf`, content: b64(pdf) }];
       const send = async (k: string, to: { email: string; name?: string }) => {
         const t = tpl(k); if (!t || !to.email) return;
         const subject = fill(t.subject, { ...vars, client_display: clientDisplay, quote_number: q.quote_number });
@@ -187,7 +189,8 @@ Deno.serve(async (req) => {
         const out = await res.json().catch(() => ({}));
         await db.from('qs_email_log').insert({ client_id: c.id, quote_id: q.id, template_key: k, to_email: to.email, subject, status: res.ok ? 'sent' : 'failed', brevo_message_id: out.messageId || null, error: res.ok ? null : (out.message || `HTTP ${res.status}`) });
       };
-      await send('quote_accepted_client', { email: c.email, name: c.full_name });
+      // simple online services: the client gets one email after payment (welcome_oneoff_client) instead
+      if (!loeFinal.online) await send('quote_accepted_client', { email: c.email, name: c.full_name });
       const admin = typeof S.admin_notify_email === 'string' ? S.admin_notify_email : (S.admin_notify_email?.email || 'info@accounted4tax.co.uk');
       await send('quote_accepted_admin', { email: admin, name: 'Eduard' });
     }

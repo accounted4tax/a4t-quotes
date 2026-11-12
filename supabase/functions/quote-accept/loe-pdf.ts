@@ -64,10 +64,11 @@ export function parseMd(md: string): Block[] {
 export async function buildSignedPdf(d: {
   loe: { parts: { key: string; title: string; md: string }[]; intro: string; items: { key: string; text: string; required: boolean }[] };
   ticks: Record<string, boolean>; signed_name: string; signed_at: Date; ip: string; user_agent: string;
-  quote_number: string; quote_version: number; fingerprint: string; client_display: string; quotePdf: Uint8Array; practice: any;
+  quote_number: string; quote_version: number; fingerprint: string; client_display: string; quotePdf: Uint8Array | null; practice: any;
 }): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`Signed engagement letter and quote ${d.quote_number}`); doc.setAuthor('Accounted4Tax Ltd');
+  const ref = d.quotePdf ? `Quote ${d.quote_number} v${d.quote_version}` : `Ref ${d.quote_number}`;
+  doc.setTitle(d.quotePdf ? `Signed engagement letter and quote ${d.quote_number}` : `Signed engagement letter ${d.quote_number}`); doc.setAuthor('Accounted4Tax Ltd');
   const F = { r: await doc.embedFont(StandardFonts.Helvetica), b: await doc.embedFont(StandardFonts.HelveticaBold),
     i: await doc.embedFont(StandardFonts.HelveticaOblique), bi: await doc.embedFont(StandardFonts.HelveticaBoldOblique) };
   const fontOf = (r: Run) => r.b && r.i ? F.bi : r.b ? F.b : r.i ? F.i : F.r;
@@ -79,7 +80,7 @@ export async function buildSignedPdf(d: {
     page = doc.addPage([W, H]); pageNo++;
     page.drawRectangle({ x: 0, y: H - 16 * MM, width: W, height: 16 * MM, color: NAVY });
     page.drawText('Accounted4Tax', { x: L, y: H - 10.5 * MM, size: 13, font: F.b, color: WHITE });
-    const right = safe(`Engagement letter · Quote ${d.quote_number} v${d.quote_version} · ${d.client_display}`);
+    const right = safe(`Engagement letter · ${ref} · ${d.client_display}`);
     page.drawText(right, { x: R - F.r.widthOfTextAtSize(right, 8), y: H - 10 * MM, size: 8, font: F.r, color: WHITE });
     const foot = safe(`${p.name || 'Accounted4Tax Ltd'} · Company number ${p.crn || '16438537'} · ${p.registered_office || '128 City Road, London EC1V 2NX'} · Signed online by ${d.signed_name} on ${fmt(d.signed_at)}`);
     page.drawText(foot, { x: L, y: 9 * MM, size: 6.5, font: F.r, color: GREY });
@@ -141,7 +142,7 @@ export async function buildSignedPdf(d: {
 
   newPage();
   page.drawText('Engagement letter', { x: L, y: y - 16, size: 18, font: F.b, color: NAVY }); y -= 26;
-  drawRuns([{ text: `For ${d.client_display} · Quote ${d.quote_number}, version ${d.quote_version}`, i: true }], { color: GREY, gap: 8 });
+  drawRuns([{ text: d.quotePdf ? `For ${d.client_display} · Quote ${d.quote_number}, version ${d.quote_version}` : `For ${d.client_display} · Ref ${d.quote_number}`, i: true }], { color: GREY, gap: 8 });
   d.loe.parts.forEach((part, idx) => {
     if (idx > 0) { need(60); y -= 8; page.drawRectangle({ x: L, y: y - 2, width: CW, height: 1.2, color: GOLD }); y -= 10; }
     if (idx > 0) drawRuns([{ text: part.title, b: true }], { size: 14, color: NAVY, gap: 6 });
@@ -163,7 +164,7 @@ export async function buildSignedPdf(d: {
   page.drawRectangle({ x: L, y: y - 100, width: CW, height: 100, color: LIGHT });
   const rowsKv: [string, string][] = [
     ['Signed by (typed name)', d.signed_name], ['Date and time', fmt(d.signed_at) + ' (UK time)'], ['IP address', d.ip || 'not available'],
-    ['Device', (d.user_agent || 'not available').slice(0, 88)], ['Quote', `${d.quote_number}, version ${d.quote_version}`],
+    ['Device', (d.user_agent || 'not available').slice(0, 88)], [d.quotePdf ? 'Quote' : 'Reference', d.quotePdf ? `${d.quote_number}, version ${d.quote_version}` : d.quote_number],
     ['Document fingerprint (SHA-256)', d.fingerprint],
   ];
   let yy = y - 14;
@@ -178,12 +179,13 @@ export async function buildSignedPdf(d: {
   page.drawLine({ start: { x: L, y: y - 27 }, end: { x: L + 90 * MM, y: y - 27 }, thickness: 0.6, color: GREY });
   page.drawText('Signature (typed online)', { x: L, y: y - 36, size: 7.5, font: F.r, color: GREY });
   y -= 48;
-  drawRuns(runs('The quote that forms part of this agreement follows.'), { color: GREY, size: 8.5 });
-
-  // the quote (attached)
-  const qd = await PDFDocument.load(d.quotePdf);
-  const pages = await doc.copyPages(qd, qd.getPageIndices());
-  pages.forEach((pg: any) => doc.addPage(pg));
+  if (d.quotePdf) {
+    drawRuns(runs('The quote that forms part of this agreement follows.'), { color: GREY, size: 8.5 });
+    // the quote (attached)
+    const qd = await PDFDocument.load(d.quotePdf);
+    const pages = await doc.copyPages(qd, qd.getPageIndices());
+    pages.forEach((pg: any) => doc.addPage(pg));
+  }
   return await doc.save();
 }
 

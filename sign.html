@@ -142,7 +142,8 @@
     }
     const q = Q.quote, lq = L.quote;
     if (preview) $('pv').innerHTML = '<div class="preview-bar">Preview: this is the signing page your client sees. Signing is switched off in preview.</div>';
-    $('ref').textContent = `Quote ${lq.quote_number} · version ${lq.version}`;
+    const online = !!(L.loe && L.loe.online);   // simple online services (e.g. CIS registration): no quote wording
+    $('ref').textContent = online ? `Ref ${lq.quote_number}` : `Quote ${lq.quote_number} · version ${lq.version}`;
     document.title = `Accept and sign ${lq.quote_number} · Accounted4Tax`;
 
     async function goPay(btn) {
@@ -162,10 +163,10 @@
       if (!link) { try { link = (await call('quote-accept', { action: 'download', token })).url; } catch (_) {} }
       const paid = status === 'paid', cancelled = p.get('payment') === 'cancelled';
       // one-off services started online (schedule D10, CIS registration) have no identity check or agent authorisation
-      const oneOffOnline = ((L && L.loe && L.loe.schedules) || []).length > 0 && L.loe.schedules.every(k => ONLINE_SCHEDULES.includes(k));
+      const oneOffOnline = !!(L && L.loe && L.loe.online) || (((L && L.loe && L.loe.schedules) || []).length > 0 && L.loe.schedules.every(k => ONLINE_SCHEDULES.includes(k)));
       $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
         <h1 class="title" style="font-size:1.4rem">${fresh ? 'Thank you' : 'Already accepted'}${name ? ', ' + esc(name.split(' ')[0]) : ''}</h1>
-        <p>Quote ${esc(lq.quote_number)} and your engagement letter were signed${name ? ' by ' + esc(name) : ''}${at ? ' on ' + esc(fdt(at)) : ''}.</p>
+        <p>${online ? 'Your engagement letter was' : `Quote ${esc(lq.quote_number)} and your engagement letter were`} signed${name ? ' by ' + esc(name) : ''}${at ? ' on ' + esc(fdt(at)) : ''}.</p>
         ${paid ? `<p><b>Your payment has been received.</b> <a href="paid.html?t=${esc(token)}">See your payment details</a></p>`
           : `<div class="sign" style="text-align:left;margin:14px 0">
               <p style="margin:0 0 4px;font-weight:700;color:var(--navy)">${cancelled ? 'Your payment was not completed' : 'Last step: payment'}</p>
@@ -193,7 +194,7 @@
     if (!q.monthly_allowed) pay = 'one_off';
 
     let html = `<h1 class="title">Accept and sign</h1>
-      <p class="lead">${esc(L.client.name)} · quote ${esc(lq.quote_number)}${lq.expires_at ? ' · valid until ' + esc(fd(lq.expires_at)) : ''}. <a href="q.html?t=${esc(token)}${preview ? '&preview=1' : ''}">View the quote again</a></p>
+      <p class="lead">${online ? `${esc(L.client.name)} · ${esc((L.loe.parts[0] && /The fee is ([^,]+)/.exec(L.loe.parts[0].md) || [])[1] || '')} paid by card when you accept.` : `${esc(L.client.name)} · quote ${esc(lq.quote_number)}${lq.expires_at ? ' · valid until ' + esc(fd(lq.expires_at)) : ''}. <a href="q.html?t=${esc(token)}${preview ? '&preview=1' : ''}">View the quote again</a>`}</p>
       <div class="steps">${q.monthly_allowed ? '<span>1 · How you pay</span>' : ''}<span>${q.monthly_allowed ? 2 : 1} · Read the engagement letter</span><span>${q.monthly_allowed ? 3 : 2} · Sign</span></div>`;
 
     if (q.monthly_allowed) {
@@ -207,7 +208,7 @@
     }
 
     html += `<section class="sec"><h2>Your engagement letter</h2>
-      <p class="hint" style="margin:-2px 0 10px">Please read each part. Together with your quote they form our agreement. Tap a part to open it.</p>
+      <p class="hint" style="margin:-2px 0 10px">Please read each part. ${online ? 'Together they' : 'Together with your quote they'} form our agreement. Tap a part to open it.</p>
       ${L.loe.parts.map((part, i) => `<details class="part"${i === 0 ? ' open' : ''}><summary>${esc(part.title)}</summary><div class="txt">${mdToHtml(part.md)}</div></details>`).join('')}
     </section>`;
 
