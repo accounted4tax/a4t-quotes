@@ -84,6 +84,7 @@
     const fd = (d) => d ? new Date(String(d).length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
     const fdt = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+    const ONLINE_SCHEDULES = ['D10'];
     const $ = (id) => document.getElementById(id);
     const p = new URLSearchParams(location.search);
     const token = p.get('t'), preview = p.get('preview') === '1';
@@ -160,6 +161,8 @@
       let link = url;
       if (!link) { try { link = (await call('quote-accept', { action: 'download', token })).url; } catch (_) {} }
       const paid = status === 'paid', cancelled = p.get('payment') === 'cancelled';
+      // one-off services started online (schedule D10, CIS registration) have no identity check or agent authorisation
+      const oneOffOnline = ((L && L.loe && L.loe.schedules) || []).length > 0 && L.loe.schedules.every(k => ONLINE_SCHEDULES.includes(k));
       $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
         <h1 class="title" style="font-size:1.4rem">${fresh ? 'Thank you' : 'Already accepted'}${name ? ', ' + esc(name.split(' ')[0]) : ''}</h1>
         <p>Quote ${esc(lq.quote_number)} and your engagement letter were signed${name ? ' by ' + esc(name) : ''}${at ? ' on ' + esc(fdt(at)) : ''}.</p>
@@ -171,8 +174,8 @@
               <div class="alert alert-error err" id="payerr" role="alert"></div></div>`}
         ${link ? `<p><a class="btn btn-ghost" href="${esc(link)}">Download your signed copy (PDF)</a></p>` : ''}
         <p class="hint">We have also emailed a copy to you.</p>
-        <ul><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
-          <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li></ul>
+        ${oneOffOnline ? '' : `<ul><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
+          <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li></ul>`}
         <p class="hint">Questions? Reply to our email or call ${esc((Q.practice || {}).phone || '07563 811938')}.</p></div>`;
       const pb = $('paybtn');
       if (pb) { pb.onclick = () => goPay(pb); if (fresh && !cancelled) setTimeout(() => goPay(pb), 1200); }

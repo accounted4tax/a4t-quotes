@@ -104,17 +104,27 @@
     if (!st.paid) return state('Payment not received yet', `We have not received a payment for quote ${esc(st.quote_number || '')} yet. <a href="sign.html?t=${esc(token)}">Go back and pay now</a>.`);
     let link = null;
     try { link = (await call('quote-accept', { action: 'download', token })).url; } catch (_) {}
-    $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
-      <h1 class="title" style="font-size:1.4rem">Payment received – thank you</h1>
-      <p>Your payment for quote ${esc(st.quote_number)} has gone through. Stripe will email you a receipt and invoice, and an invoice for each monthly payment.</p>
-      <p><button type="button" class="btn btn-teal" id="portal">Manage payments and invoices</button></p>
+    // online services (e.g. CIS registration): the next step is on the website, no identity check
+    let nx = null;
+    try { nx = await call('start-online', { action: 'next', token }); } catch (_) {}
+    const nextBlock = nx && nx.url
+      ? `<p style="margin:18px 0 6px"><a class="btn btn-teal" href="${esc(nx.url)}">${esc(nx.label)}</a></p>
+        <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
+        <ul style="margin:0;padding-left:20px"><li>${nx.done ? 'You have signed your form – thank you.' : 'Check the details we filled in on your form and sign it on screen. We have also emailed you this link.'}</li>
+          <li>We print the signed form and post it to HMRC. HMRC will write to you to confirm your registration.</li></ul></div>`
+      : `<p><button type="button" class="btn btn-teal" id="portal">Manage payments and invoices</button></p>
       <p class="hint" style="margin-top:-4px">Update your card or download your invoices on Stripe's secure page.</p>
-      ${link ? `<p><a class="btn btn-ghost" href="${esc(link)}">Download your signed engagement letter (PDF)</a></p>` : ''}
       <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
         <ul style="margin:0;padding-left:20px"><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. The law requires us to complete these checks before we start work.</li>
           <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li>
-          <li>We will be in touch about the information we need from you.</li></ul></div>
+          <li>We will be in touch about the information we need from you.</li></ul></div>`;
+    $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
+      <h1 class="title" style="font-size:1.4rem">Payment received – thank you</h1>
+      <p>Your payment for quote ${esc(st.quote_number)} has gone through. Stripe will email you a receipt${nx && nx.url ? '' : ' and invoice, and an invoice for each monthly payment'}.</p>
+      ${nextBlock}
+      ${link ? `<p><a class="btn btn-ghost" href="${esc(link)}">Download your signed engagement letter (PDF)</a></p>` : ''}
       <div class="alert alert-error err" id="perr" role="alert"></div></div>`;
+    if (!$('portal')) return;
     $('portal').onclick = async () => {
       const b = $('portal'); b.disabled = true; b.textContent = 'Opening…';
       try { location.href = (await call('quote-checkout', { action: 'portal', token })).url; }

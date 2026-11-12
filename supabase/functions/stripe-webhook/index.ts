@@ -7,6 +7,8 @@
 //   customer.subscription.updated   → client asked to cancel (portal) → Eduard emailed.
 //   customer.subscription.deleted   → subscription "completed" (all payments made) or "cancelled" (Eduard emailed).
 // Phase 6, 11 Nov 2026. Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BREVO_API_KEY.
+// 12 Nov 2026: one-off online services without an identity check (services_catalogue.requires_id = false) get the
+// welcome_oneoff_client email (with their next step) and no automatic ID request.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { stripe, verifyWebhook } from './stripe.ts';
@@ -38,6 +40,15 @@ async function notifyAdmin(templateKey: string, vars: Record<string, string>, id
   const out = await res.json().catch(() => ({}));
   await db.from('qs_email_log').insert({ client_id: ids.client_id || null, quote_id: ids.quote_id || null, template_key: templateKey, to_email: to, subject,
     status: res.ok ? 'sent' : 'failed', brevo_message_id: out.messageId || null, error: res.ok ? null : (out.message || `HTTP ${res.status}`) });
+}
+
+// one-off services sold online (services_catalogue.requires_id = false, e.g. CIS registration) have no identity check
+async function needsId(quote_id: string) {
+  const { data: ls } = await db.from('qs_quote_lines').select('service_id').eq('quote_id', quote_id);
+  const ids = (ls || []).map((l: any) => l.service_id).filter(Boolean);
+  if (!ids.length || ids.length < (ls || []).length) return true;
+  const { data: sv } = await db.from('services_catalogue').select('id,requires_id').in('id', ids);
+  return (sv || []).length < new Set(ids).size || (sv || []).some((x: any) => x.requires_id !== false);
 }
 
 // ---------- welcome email (client) + new client email (Eduard), once per quote ----------
@@ -89,6 +100,21 @@ async function welcomeEmails(q: any, s: any, live: boolean) {
   }
   const phone = (S.practice || {}).phone || '07563 811938';
   const ids = { client_id: c.id, quote_id: q.id };
+  const withId = await needsId(q.id);
+  if (!withId) {
+    const { data: st2 } = await db.from('qs_settings').select('key,value').eq('key', 'website_base_url').maybeSingle();
+    const web = String(st2?.value || 'https://accounted4tax.pages.dev').replace(/\/$/, '');
+    const { data: form } = await db.from('form_submissions').select('access_token,form_type').eq('quote_id', q.id).maybeSingle();
+    const btn = (href: string, label: string) => `<p style="text-align:center;margin:18px 0"><a href="${esc(href)}" style="background:#0E6E6B;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:bold;display:inline-block">${esc(label)}</a></p>`;
+    const next = form?.form_type === 'cis301'
+      ? `<p><b>Check and sign your CIS registration form.</b> We have filled in HMRC form CIS301 from your answers. Please check the details and sign on screen:</p>${btn(`${web}/cis-registration/sign/?t=${form.access_token}`, 'Check and sign my form')}<p>Once you have signed, we print the form and post it to HMRC. HMRC will write to you to confirm your registration.</p>`
+      : '<p>We will be in touch shortly about the next step.</p>';
+    await sendTemplate('welcome_oneoff_client', { email: c.email, name: c.full_name }, {
+      client_first_name: esc(String(c.full_name || '').trim().split(/\s+/)[0] || 'there'), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number),
+      service_name: esc((lines || []).map((l: any) => l.description).join(', ')), next_step_block: next, phone: esc(phone),
+      consumer_block: !ltd && !acc?.consumer_start_now ? '<p style="color:#4A5568;font-size:14px">You have 14 days from accepting to cancel. As you did not ask us to start straight away, we will post your form once that period has passed.</p>' : '',
+    }, ids, attachment, { service_name: (lines || []).map((l: any) => l.description).join(', ') });
+  } else
   await sendTemplate('welcome_client', { email: c.email, name: c.full_name }, {
     client_first_name: esc(String(c.full_name || '').trim().split(/\s+/)[0] || 'there'), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number),
     company_for: ltd && c.company_name ? ' and ' + esc(c.company_name) : '', client_display: esc(display), payment_summary: esc(pay), phone: esc(phone),
@@ -168,7 +194,7 @@ async function checkoutCompleted(s: any) {
   try { await welcomeEmails({ ...q, ...upd }, s, !!s.livemode); }
   catch (e) { await db.from('qs_events').insert({ source: 'system', event_type: 'welcome_email_error', client_id: q.client_id, quote_id: q.id, payload: { error: String((e as Error).message || e).slice(0, 300) } }); }
   // identity check link for the contact person (directors and PSCs are requested later from the Practice Manager)
-  try {
+  if (await needsId(q.id)) try {
     const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/aml`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auto', quote_id: q.id }) });
   } catch (_) { /* logged by the aml function */ }
