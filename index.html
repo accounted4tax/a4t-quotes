@@ -56,7 +56,11 @@
 
       // Already signed in? Go straight to the dashboard.
       const { data: { session } } = await A4T.sb.auth.getSession();
-      if (session) { location.replace('dashboard.html'); return; }
+      if (session) {
+        const { data: u, error: ue } = await A4T.sb.auth.getUser();
+        if (!ue && u && u.user) { location.replace('dashboard.html'); return; }
+        await A4T.sb.auth.signOut({ scope: 'local' });   // saved sign-in no longer valid – show the login form
+      }
 
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();

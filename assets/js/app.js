@@ -9,9 +9,12 @@
   async function requireAdmin() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { window.location.replace('index.html'); return null; }
+    // A saved sign-in can be cancelled elsewhere (e.g. signing out of the client portal). Check it is still valid.
+    const { data: u, error: ue } = await sb.auth.getUser();
+    if (ue || !u || !u.user) { await sb.auth.signOut({ scope: 'local' }); window.location.replace('index.html'); return null; }
     const { data: isAdmin, error } = await sb.rpc('qs_is_admin');
     if (error || !isAdmin) {
-      await sb.auth.signOut();
+      await sb.auth.signOut({ scope: 'local' });
       window.location.replace('index.html?denied=1');
       return null;
     }
@@ -19,7 +22,7 @@
   }
 
   async function signOut() {
-    await sb.auth.signOut();
+    await sb.auth.signOut({ scope: 'local' });   // this device only – keeps the Practice Manager and portal signed in
     window.location.replace('index.html');
   }
 
