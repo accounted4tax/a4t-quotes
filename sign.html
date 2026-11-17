@@ -175,7 +175,7 @@
               <div class="alert alert-error err" id="payerr" role="alert"></div></div>`}
         ${link ? `<p><a class="btn btn-ghost" href="${esc(link)}">Download your signed copy (PDF)</a></p>` : ''}
         <p class="hint">We have also emailed a copy to you.</p>
-        ${oneOffOnline ? '' : `<ul><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
+        ${oneOffOnline ? (L.loe.id_check ? `<ul><li><b>Identity check:</b> after you pay, we will email you a secure link to upload photo ID and proof of address. We cannot start until this check is complete.</li></ul>` : '') : `<ul><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. We cannot start work until these checks are complete.</li>
           <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li></ul>`}
         <p class="hint">Questions? Reply to our email or call ${esc((Q.practice || {}).phone || '07563 811938')}.</p></div>`;
       const pb = $('paybtn');

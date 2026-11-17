@@ -6,7 +6,7 @@
 //          Practice Manager (loes + documents), marks the quote accepted and emails the client and Eduard.
 //   { action: 'download', token }           → a fresh 1-hour link to the signed PDF (accepted quotes only)
 // Phase 5, 11 Nov 2026. Secrets: BREVO_API_KEY.
-// 12 Nov 2026: simple online services (schedule D10) get the short letter ([IF online] in the templates), no quote PDF and no client email here.
+// 12 Nov 2026: simple online services (schedules titled "(one-off)", e.g. D10, D11) get the short letter ([IF online] in the templates), no quote PDF and no client email here.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { assembleLoe, sha256Hex, type Templates } from './loe.ts';
@@ -57,7 +57,7 @@ async function load(token: string) {
   if (!q) return null;
   const { data: lines } = await db.from('qs_quote_lines').select('*').eq('quote_id', q.id).order('sort_order');
   const ids = (lines || []).map((l: any) => l.service_id).filter(Boolean);
-  const { data: svc } = ids.length ? await db.from('services_catalogue').select('id,description,loe_schedule_key').in('id', ids) : { data: [] as any[] };
+  const { data: svc } = ids.length ? await db.from('services_catalogue').select('id,description,loe_schedule_key,requires_id').in('id', ids) : { data: [] as any[] };
   const services = Object.fromEntries((svc || []).map((s: any) => [s.id, s]));
   const { data: st } = await db.from('qs_settings').select('key,value');
   const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       return json({
         quote: { quote_number: q.quote_number, version: q.version, status: q.status, expires_at: q.expires_at, monthly_allowed: q.monthly_allowed, client_type: c.client_type },
         client: { name: clientDisplay, signer: c.full_name, company_name: c.company_name },
-        loe: { parts: loe.parts, intro: loe.intro, items: loe.items, schedules: loe.schedules, consumer: loe.consumer, online: loe.online, template_version: loe.template_version },
+        loe: { parts: loe.parts, intro: loe.intro, items: loe.items, schedules: loe.schedules, consumer: loe.consumer, online: loe.online, id_check: loe.id_check, template_version: loe.template_version },
         fingerprint, accepted,
       });
     }

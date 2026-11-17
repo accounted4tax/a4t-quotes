@@ -101,18 +101,21 @@ async function welcomeEmails(q: any, s: any, live: boolean) {
   const phone = (S.practice || {}).phone || '07563 811938';
   const ids = { client_id: c.id, quote_id: q.id };
   const withId = await needsId(q.id);
-  if (!withId) {
+  // services started online on the website have a form_submissions row linked to the quote
+  const { data: form } = await db.from('form_submissions').select('access_token,form_type').eq('quote_id', q.id).maybeSingle();
+  if (!withId || form) {
     const { data: st2 } = await db.from('qs_settings').select('key,value').eq('key', 'website_base_url').maybeSingle();
     const web = String(st2?.value || 'https://accounted4tax.pages.dev').replace(/\/$/, '');
-    const { data: form } = await db.from('form_submissions').select('access_token,form_type').eq('quote_id', q.id).maybeSingle();
     const btn = (href: string, label: string) => `<p style="text-align:center;margin:18px 0"><a href="${esc(href)}" style="background:#0E6E6B;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:bold;display:inline-block">${esc(label)}</a></p>`;
     const next = form?.form_type === 'cis301'
       ? `<p><b>Check and sign your CIS registration form.</b> We have filled in HMRC form CIS301 from your answers. Please check the details and sign on screen:</p>${btn(`${web}/cis-registration/sign/?t=${form.access_token}`, 'Check and sign my form')}<p>Once you have signed, we print the form and post it to HMRC. HMRC will write to you to confirm your registration.</p>`
+      : form?.form_type === 'sa_reg'
+      ? `<p><b>1. Upload your ID.</b> We have emailed you a separate secure link to upload photo ID and proof of address. The Money Laundering Regulations require us to check your identity before we register you, so please do this as soon as you can.</p><p><b>2. We register you with HMRC</b> once your ID is checked, normally within 5 working days.</p><p><b>3. Your UTR arrives by post.</b> HMRC usually posts it within about 15 working days. Please send us a photo of the letter when it arrives.</p>`
       : '<p>We will be in touch shortly about the next step.</p>';
     await sendTemplate('welcome_oneoff_client', { email: c.email, name: c.full_name }, {
       client_first_name: esc(String(c.full_name || '').trim().split(/\s+/)[0] || 'there'), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number),
       service_name: esc((lines || []).map((l: any) => l.description).join(', ')), next_step_block: next, phone: esc(phone),
-      consumer_block: !ltd && !acc?.consumer_start_now ? '<p style="color:#4A5568;font-size:14px">You have 14 days from accepting to cancel. As you did not ask us to start straight away, we will post your form once that period has passed.</p>' : '',
+      consumer_block: !ltd && !acc?.consumer_start_now ? `<p style="color:#4A5568;font-size:14px">You have 14 days from accepting to cancel. As you did not ask us to start straight away, we will ${form?.form_type === 'sa_reg' ? 'register you' : 'post your form'} once that period has passed.</p>` : '',
     }, ids, attachment, { service_name: (lines || []).map((l: any) => l.description).join(', ') });
   } else
   await sendTemplate('welcome_client', { email: c.email, name: c.full_name }, {

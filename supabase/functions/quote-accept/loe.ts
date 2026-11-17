@@ -9,7 +9,8 @@
 export type Templates = { version: number; part_a: string; acceptance: string; part_b: string; part_c: string; part_e: string;
   schedule_open: string; schedule_close: string; schedules: Record<string, { title: string; body: string }> };
 
-export const ONLINE_SCHEDULES = ['D10'];
+// A schedule whose title ends with "(one-off)" is a simple service bought online (D10 CIS registration, D11 UTR registration…).
+// A quote made only of these gets the short letter ([IF online]); [IF id_check] when any of its services needs an identity check.
 
 const D9_ROWS: Record<string, string> = {
   sa_reg: 'Self Assessment registration', vat_reg: 'VAT registration', paye_reg: 'PAYE', pension_setup: 'Workplace pension',
@@ -87,8 +88,9 @@ export function assembleLoe(T: Templates, d: {
   const plan = has(/Full MTD/i) ? 'full' : has(/MTD for Income Tax — Compliance/i) ? 'compliance' : has(/MTD for Income Tax — Essential/i) ? 'essential' : null;
   const flags: Record<string, boolean> = {
     ltd, consumer: !ltd, individual: !ltd, business_client: ltd, alternate: false, included: false,
-    // simple one-off services bought online on the website (schedule D10, CIS registration): short letter, no quote, no ID check
-    online: scheds.length > 0 && scheds.every((k) => ONLINE_SCHEDULES.includes(k)),
+    // simple one-off services bought online on the website (schedules titled "(one-off)"): short letter, no quote
+    online: scheds.length > 0 && scheds.every((k) => /\(one-off\)\s*$/.test(T.schedules[k].title)),
+    id_check: lines.some((l) => (d.services[l.service_id] || {}).requires_id !== false),
     dormant: has(/dormant/i), director_id_verification: has(/Director ID/i), auto_enrolment: has(/Pension run/i), payroll: keys.has('D7'),
   };
 
@@ -137,7 +139,7 @@ export function assembleLoe(T: Templates, d: {
   if (Number(q.balance_later)) pay += `, plus ${gbp(Number(q.balance_later))} before we submit your tax return`;
 
   const text = parts.map((p) => `## ${p.title}\n\n${p.md}`).join('\n\n') + '\n\n## Acceptance\n\n' + intro + '\n' + items.map((i) => '- ' + i.text).join('\n');
-  return { parts, intro, items, schedules: scheds, consumer: !ltd, plan, online: flags.online, payment_summary: pay, text, template_version: T.version };
+  return { parts, intro, items, schedules: scheds, consumer: !ltd, plan, online: flags.online, id_check: flags.id_check, payment_summary: pay, text, template_version: T.version };
 }
 
 export async function sha256Hex(s: string) {
