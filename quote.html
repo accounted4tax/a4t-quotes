@@ -158,7 +158,22 @@
     }
 
     // ---------- client ----------
+    // one bookkeeping package / one software charge per client: warn if the client already pays them on another paid quote
+    let clientPays = { for: null, book: false, soft: false };
+    async function loadPays() {
+      const id = client ? client.id : null;
+      if (!id) { clientPays = { for: null, book: false, soft: false }; return; }
+      if (clientPays.for === id) return;
+      clientPays = { for: id, book: false, soft: false };
+      const since = new Date(Date.now() - 400 * 864e5).toISOString();
+      const { data } = await A4T.sb.from('qs_quote_lines').select('description, runs_until_cancelled, charge_kind, quote:qs_quotes!inner(id,client_id,status,paid_at)')
+        .eq('quote.client_id', id).eq('quote.status', 'paid').gte('quote.paid_at', since);
+      const live = (data || []).filter(l => (l.runs_until_cancelled || l.charge_kind === 'ongoing') && (!quote.id || l.quote.id !== quote.id));
+      clientPays = { for: id, book: live.some(l => /^Bookkeeping/i.test(l.description)), soft: live.some(l => /^Accounting software/i.test(l.description)) };
+      if (calc) renderSummary();
+    }
     function renderClient() {
+      loadPays();
       $('client-pick').style.display = client || !editable ? 'none' : '';
       $('client-card').style.display = client ? '' : 'none';
       if (!client) { $('outstanding').innerHTML = ''; return; }
@@ -344,6 +359,11 @@
       const errs = [...calc.errors];
       if (!client) errs.unshift('Choose a client.');
       if (!lines.length) errs.push('Add at least one service.');
+      const warns = [], has = (re) => lines.some(l => re.test((l.service && l.service.name) || ''));
+      if (clientPays.for && client && clientPays.for === client.id) {
+        if (clientPays.book && has(/^Bookkeeping/i)) warns.push('This client already pays for bookkeeping on another paid quote – check you are not charging it twice.');
+        if (clientPays.soft && has(/^Accounting software/i)) warns.push('This client already pays for accounting software on another paid quote – check you are not charging it twice.');
+      }
       $('summary').innerHTML = `
         <h2>Summary</h2>
         <dl class="kv sum-kv">
@@ -359,7 +379,8 @@
           ${t.rolling_monthly ? `<div class="pay-opt"><b>Monthly plans</b><span>${money(t.rolling_monthly)} a month until the client cancels (not tied to the year end)</span></div>` : ''}
           ${t.balance_later ? `<div class="pay-opt"><b>Later</b><span>${money(t.balance_later)} balance before submission to HMRC</span></div>` : ''}
         </div>
-        ${errs.length ? `<ul class="problems">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;
+        ${errs.length ? `<ul class="problems">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}
+        ${warns.length ? `<ul class="problems" style="background:#FFF6E5;border-color:#F0DDB0">${warns.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;
       renderActions(errs.length === 0);
     }
 
