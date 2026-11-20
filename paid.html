@@ -63,12 +63,15 @@
     .ft { border-top: 1px solid #E3E6EC; padding: 14px 20px 20px; font-size: .72rem; color: var(--muted); text-align: center; line-height: 1.6; }
     .err { display: none; margin-top: 12px; }
     .err.show { display: block; }
+    .spin { width: 34px; height: 34px; margin: 14px auto; border-radius: 50%; border: 4px solid #E3E6EC; border-top-color: var(--teal); animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-sm { font-size: .9rem; padding: 8px 14px; }
     </style>
 </head>
 <body>
   <div class="doc">
     <header class="hd"><div class="brand">Accounted4Tax</div><div class="ref" id="ref"></div></header>
-    <main class="body" id="main"><p>Checking your payment…</p></main>
+    <main class="body" id="main"><div class="done"><div class="spin" aria-hidden="true"></div><p>Checking your payment…</p></div></main>
     <footer class="ft">Accounted4Tax Ltd · Registered in England and Wales, company number 16438537 · Registered office 128 City Road, London EC1V 2NX · Not VAT registered</footer>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -94,41 +97,52 @@
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return state('Link not valid', 'This link is incomplete. Please use the link in your email.');
 
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    // straight back from Stripe: say so at once, then finish the checks (20 Nov 2026)
+    const fromStripe = !!p.get('session_id');
+    $('main').innerHTML = `<div class="done"><div class="ok">✓</div><h1 class="title" style="font-size:1.4rem">${fromStripe ? 'Payment received – just finishing up…' : 'Checking your payment…'}</h1><div class="spin" aria-hidden="true"></div><p class="hint">This takes a few seconds. Please don't close this page.</p></div>`;
     let st = null;
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       try { st = await call('quote-checkout', { action: 'status', token }); } catch (e) { return state('Something went wrong', esc(e.message)); }
-      if (st.paid || !p.get('session_id')) break;
-      await sleep(2000);
+      if (st.paid || !fromStripe) break;
+      await sleep(1000);
     }
     if (st.quote_number) { $('ref').textContent = 'Quote ' + st.quote_number; document.title = `Payment ${st.quote_number} · Accounted4Tax`; }
     if (!st.paid) return state('Payment not received yet', `We have not received a payment for quote ${esc(st.quote_number || '')} yet. <a href="sign.html?t=${esc(token)}">Go back and pay now</a>.`);
-    let link = null;
-    try { link = (await call('quote-accept', { action: 'download', token })).url; } catch (_) {}
-    // online services (e.g. CIS registration): the next step is on the website, no identity check
-    let nx = null;
-    try { nx = await call('start-online', { action: 'next', token }); } catch (_) {}
-    const nextBlock = nx && (nx.url || nx.steps)
-      ? `${nx.url ? `<p style="margin:18px 0 6px"><a class="btn btn-teal" href="${esc(nx.url)}">${esc(nx.label)}</a></p>` : ''}
-        <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
-        <ul style="margin:0;padding-left:20px">${(nx.steps || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`
-      : `<p><button type="button" class="btn btn-teal" id="portal">Manage payments and invoices</button></p>
-      <p class="hint" style="margin-top:-4px">Update your card or download your invoices on Stripe's secure page.</p>
-      <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
-        <ul style="margin:0;padding-left:20px"><li><b>Identity checks:</b> we will email you a secure link to upload photo ID and proof of address. The law requires us to complete these checks before we start work.</li>
-          <li><b>HMRC:</b> we will send you a link to authorise us as your agent.</li>
-          <li>We will be in touch about the information we need from you.</li></ul></div>`;
+
+    // the next steps: the portal is where everything happens now
+    const portalHref = (st.portal_url || 'https://accounted4tax.pages.dev/portal/') + (st.email ? '#signin=' + encodeURIComponent(st.email) : '');
+    const steps = st.registration
+      ? ['<b>Check your identity</b> – upload photo ID and proof of address. The law requires it before we start.', '<b>Answer anything we ask</b> in your To do list.',
+         '<b>We register you with HMRC</b> – your reference arrives by post. Please send us a photo of the letter in the portal.']
+      : ['<b>Check your identity</b> – upload photo ID and proof of address. The law requires it before we start.',
+         `<b>Send us your information and documents</b>${st.ltd ? ', including the company\'s Corporation Tax UTR and Companies House authentication code' : ''} – everything is listed under To do.`,
+         '<b>We prepare the work</b> and send it to you to check and approve.' + (st.balance_later ? ' Any balance is taken when you approve.' : ''),
+         '<b>We submit it</b> and confirm in your portal.'];
     $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
       <h1 class="title" style="font-size:1.4rem">Payment received – thank you</h1>
-      <p>Your payment for quote ${esc(st.quote_number)} has gone through. Stripe will email you a receipt${nx && (nx.url || nx.steps) ? '' : ' and invoice, and an invoice for each monthly payment'}.</p>
-      ${nextBlock}
-      ${link ? `<p><a class="btn btn-ghost" href="${esc(link)}">Download your signed engagement letter (PDF)</a></p>` : ''}
+      <p>Your payment for quote ${esc(st.quote_number)} has gone through. Stripe will email you a receipt.</p>
+      <p style="margin:18px 0 6px"><a class="btn btn-teal" href="${esc(portalHref)}">Open your portal for the next steps</a></p>
+      <p class="hint" style="margin-top:0">Sign in with ${st.email ? '<b>' + esc(st.email) + '</b>' : 'your email address'} – we email you a 6-digit code. No password needed.</p>
+      <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
+        <ol style="margin:0;padding-left:22px" id="steps">${steps.map(t => `<li>${t}</li>`).join('')}</ol></div>
+      <div id="extra"></div>
+      <p style="margin-top:16px"><button type="button" class="btn btn-ghost btn-sm" id="portal">Manage payments and invoices</button></p>
+      <p class="hint" style="margin-top:-4px">Update your card or download your invoices on Stripe's secure page.</p>
       <div class="alert alert-error err" id="perr" role="alert"></div></div>`;
-    if (!$('portal')) return;
     $('portal').onclick = async () => {
       const b = $('portal'); b.disabled = true; b.textContent = 'Opening…';
       try { location.href = (await call('quote-checkout', { action: 'portal', token })).url; }
       catch (e) { b.disabled = false; b.textContent = 'Manage payments and invoices'; $('perr').textContent = e.message; $('perr').classList.add('show'); }
     };
+    // the signed letter and, for online registrations, the form to sign – in parallel, shown when ready
+    const [dl, nx] = await Promise.all([
+      call('quote-accept', { action: 'download', token }).catch(() => null),
+      call('start-online', { action: 'next', token }).catch(() => null),
+    ]);
+    let extra = '';
+    if (nx && nx.url && nx.label && !nx.done) extra += `<p style="margin:14px 0 0"><a class="btn btn-teal" href="${esc(nx.url)}">${esc(nx.label)}</a></p>`;
+    if (dl && dl.url) extra += `<p style="margin-top:12px"><a class="btn btn-ghost" href="${esc(dl.url)}">Download your signed engagement letter (PDF)</a></p>`;
+    $('extra').innerHTML = extra;
   })();
   </script>
 </body>

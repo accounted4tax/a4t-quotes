@@ -4,7 +4,7 @@
 //        catch-up / Self Assessment deposit / one-off items go on the first invoice together with the first monthly payment.
 //        Monthly plans that run until cancelled are extra recurring items under either option.
 //        The webhook (stripe-webhook) then limits the monthly fee to the quoted number of payments (subscription schedule).
-//   { action: 'status', token }  → { paid, status } for the confirmation page.
+//   { action: 'status', token }  → { paid, status } for the confirmation page (once paid: email, portal_url, registration).
 //   { action: 'portal', token }  → Stripe Customer Portal link (update card, invoices, cancel) for a paid client.
 // Phase 6, 11 Nov 2026. Secrets: STRIPE_SECRET_KEY.
 // deno-lint-ignore-file no-explicit-any
@@ -25,9 +25,10 @@ async function load(token: string) {
   const { data: q } = await db.from('qs_quotes').select('*, client:clients(*)').eq('access_token', token).maybeSingle();
   if (!q) return null;
   const { data: lines } = await db.from('qs_quote_lines').select('*').eq('quote_id', q.id).order('sort_order');
-  const { data: st } = await db.from('qs_settings').select('key,value').in('key', ['app_base_url']);
+  const { data: st } = await db.from('qs_settings').select('key,value').in('key', ['app_base_url', 'portal_base_url']);
   const S = Object.fromEntries((st || []).map((x: any) => [x.key, x.value]));
-  return { q, c: q.client, lines: lines || [], base: String(S.app_base_url || 'https://accounted4tax.github.io/a4t-quotes').replace(/\/$/, '') };
+  return { q, c: q.client, lines: lines || [], base: String(S.app_base_url || 'https://accounted4tax.github.io/a4t-quotes').replace(/\/$/, ''),
+    portalUrl: String(S.portal_base_url || 'https://accounted4tax.pages.dev/portal/') };
 }
 
 // One Stripe customer per client; recreated if the saved one is from the other mode (sandbox vs live) or was deleted.
@@ -55,18 +56,21 @@ Deno.serve(async (req) => {
   if (!/^[a-f0-9]{64}$/.test(token)) return fail(404, 'not_found', 'This quote link is not valid.');
   const L = await load(token);
   if (!L) return fail(404, 'not_found', 'This quote link is not valid.');
-  const { q, c, lines, base } = L;
+  const { q, c, lines, base, portalUrl } = L;
   const action = body.action || 'create';
   const display = c.client_type === 'ltd' ? (c.company_name || c.full_name) : (c.trading_name ? `${c.full_name} (${c.trading_name})` : c.full_name);
 
   try {
     // ---------- status (confirmation page) ----------
     if (action === 'status') {
-      if (q.status === 'paid') return json({ paid: true, status: 'paid', quote_number: q.quote_number, portal: !!c.stripe_customer_id });
+      // once paid: what the payment page needs to send the client on to their portal (20 Nov 2026)
+      const extra = { email: c.portal_email || c.email || '', portal_url: portalUrl, registration: lines.some((l: any) => /registration/i.test(l.description)) && lines.every((l: any) => /registration/i.test(l.description) || l.runs_until_cancelled),
+        ltd: c.client_type === 'ltd', balance_later: Number(q.balance_later || 0) };
+      if (q.status === 'paid') return json({ paid: true, status: 'paid', quote_number: q.quote_number, portal: !!c.stripe_customer_id, ...extra });
       if (q.stripe_checkout_session_id) {
         const s = await stripe('GET', `checkout/sessions/${q.stripe_checkout_session_id}`);
         const paid = s.status === 'complete' && ['paid', 'no_payment_required'].includes(s.payment_status);
-        return json({ paid, status: paid ? 'processing' : q.status, quote_number: q.quote_number, portal: paid });
+        return json({ paid, status: paid ? 'processing' : q.status, quote_number: q.quote_number, portal: paid, ...(paid ? extra : {}) });
       }
       return json({ paid: false, status: q.status, quote_number: q.quote_number });
     }
