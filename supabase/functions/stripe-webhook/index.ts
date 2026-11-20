@@ -89,7 +89,7 @@ async function welcomeEmails(q: any, s: any, live: boolean) {
   if (monthly) pay += n > 1 ? `, then ${n - 1} monthly payment${n - 1 === 1 ? '' : 's'} of ${pounds(Number(q.monthly_amount) + R)} until ${fdate(q.last_payment_date)}` : '';
   if (R) pay += monthly && n > 1 ? `, then ${pounds(R)} a month until you cancel` : `, then ${pounds(R)} a month until you cancel`;
   pay += '.';
-  if (Number(q.balance_later)) pay += ` The Self Assessment balance of ${pounds(Number(q.balance_later))} will be taken from the same card before we submit your return to HMRC.`;
+  if (Number(q.balance_later)) pay += ` The balance of ${pounds(Number(q.balance_later))} will be taken from the same card when you approve your work, before we file it.`;
   const hasSub = s.mode === 'subscription';
 
   // signed engagement letter + quote PDF
@@ -130,10 +130,11 @@ async function welcomeEmails(q: any, s: any, live: boolean) {
   const row = (k: string, v?: string | null) => v ? `<tr><td style="padding:4px 8px 4px 0;color:#4A5568;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:4px 0">${esc(v)}</td></tr>` : '';
   const typeLabel = ({ sole_trader: 'Sole trader', ltd: 'Limited company', landlord: 'Landlord' } as any)[c.client_type] || c.client_type;
   const admin = typeof S.admin_notify_email === 'string' ? S.admin_notify_email : (S.admin_notify_email?.email || 'info@accounted4tax.co.uk');
+  const online = String(q.notes || '').startsWith('Started online') ? String(q.notes).replace(/^Started online on the website – /, '') : null;
   await sendTemplate('new_client_admin', { email: admin, name: 'Eduard' }, {
     client_display: esc(display), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number), payment_summary: esc(pay),
     detail_rows: [row('Type', typeLabel), row('Contact', c.full_name), row('Company', ltd ? c.company_name : c.trading_name), row('Company number', c.crn), row('CT UTR', c.ct_utr), row('SA UTR', c.utr),
-      row('Email', c.email), row('Phone', c.phone), row('Address', c.address), row('Year end', fdate(q.year_end_date)), row('Signed by', acc?.signed_name)].join(''),
+      row('Email', c.email), row('Phone', c.phone), row('Address', c.address), row('Year end', fdate(q.year_end_date)), row('Signed by', acc?.signed_name), row('Started online', online)].join(''),
     services_list: (lines || []).map((l: any) => `<li>${esc(`${l.description}${l.is_earlier_year ? ' catch-up' : ''}${l.period_label ? ` (${l.period_label})` : ''}`)} – ${esc(pounds(Number(l.line_total)))}${l.runs_until_cancelled ? ' a month' : ''}</li>`).join(''),
     start_now_line: ltd ? 'Company client – no consumer cancellation period.' : acc?.consumer_start_now ? 'Consumer: asked us to START NOW within the 14-day cancellation period.' : 'Consumer: did NOT ask to start early – work starts after the 14-day cancellation period.',
     stripe_customer: esc(s.customer || ''), stripe_mode: live ? '' : ' (sandbox – test payment)',
