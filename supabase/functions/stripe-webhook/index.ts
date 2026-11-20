@@ -9,6 +9,8 @@
 // Phase 6, 11 Nov 2026. Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BREVO_API_KEY.
 // 12 Nov 2026: one-off online services without an identity check (services_catalogue.requires_id = false) get the
 // welcome_oneoff_client email (with their next step) and no automatic ID request.
+// 20 Nov 2026: balance wording is general (Self Assessment or company bookkeeping); Eduard's "new client" email shows the
+// answers given online (quote notes). Online/one-off welcome: next steps per service, listing the client's portal requests.
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { stripe, verifyWebhook } from './stripe.ts';
@@ -75,6 +77,34 @@ async function sendTemplate(templateKey: string, to: { email: string; name?: str
     status: res.ok ? 'sent' : 'failed', brevo_message_id: out.messageId || null, error: res.ok ? null : (out.message || `HTTP ${res.status}`) });
 }
 
+// 20 Nov 2026: what happens next, per service – the client's open portal requests (created when the quote is paid) and what we do
+async function nextSteps(c: any, lines: any[], withId: boolean, web: string, btn: (h: string, l: string) => string) {
+  const { data: reqs } = await db.from('portal_requests').select('title').eq('client_id', c.id).eq('status', 'open').neq('kind', 'approve').order('created_at');
+  const has = (re: RegExp) => lines.some((l: any) => re.test(String(l.description || '')));
+  const we: string[] = [];
+  if (has(/^Self Assessment|tax return/i)) we.push('Fill in your documents checklist (we have emailed you the link) and upload your documents. We prepare your tax return and send it to you to approve before we file it.');
+  if (has(/^VAT registration/i)) we.push('We register you for VAT with HMRC once we have your answers and your ID is checked. HMRC then confirms your VAT number.');
+  if (has(/^PAYE \(employer\) registration/i)) we.push('We register you as an employer with HMRC. HMRC posts your PAYE reference, usually within 2 weeks.');
+  if (has(/^CIS contractor registration/i)) we.push('We register you as a CIS contractor with HMRC.');
+  if (has(/^Payroll/i)) we.push('We set up your payroll and run it from your next pay day: payslips, RTI submissions and what to pay HMRC.');
+  if (has(/^CIS contractor returns/i)) we.push('We verify your subcontractors with HMRC and file your CIS300 return every month. On the 1st of each month we ask for your subcontractors\' invoices.');
+  if (has(/^VAT returns/i)) we.push('We prepare each VAT return and send it to you to approve before we file it.');
+  if (has(/^Bookkeeping/i)) we.push('We set up your accounting software and keep your books up to date every month.');
+  if (has(/^Company accounts/i)) we.push('We prepare the company accounts and Corporation Tax return (CT600) and send them to you to approve before we file.');
+  if (has(/^Dormant/i)) we.push('We file the dormant accounts at Companies House.');
+  if (has(/^Confirmation statement/i)) we.push('We file the confirmation statement at Companies House.');
+  if (has(/^Director ID/i)) we.push('We send each director a secure ID check link and give them their Companies House personal code.');
+  if (!we.length) we.push('We start the work and keep you updated in your portal.');
+  const portal = `${web}/portal/#signin=${encodeURIComponent(c.email || '')}`;
+  let n = 0, h = '';
+  if (withId) h += `<p><b>${++n}. Upload your ID.</b> We have emailed you a separate secure link to upload photo ID and proof of address. The law requires us to check your identity before we start.</p>`;
+  h += `<p><b>${++n}. Send us what we need in your client portal.</b>${(reqs || []).length ? '' : ' Your portal shows anything we need from you.'}</p>`;
+  if ((reqs || []).length) h += `<ul style="margin:0 0 6px 18px;padding:0">${(reqs || []).slice(0, 15).map((r: any) => `<li>${esc(r.title)}</li>`).join('')}</ul>`;
+  h += btn(portal, 'Open my portal');
+  h += `<p><b>${++n}. We do the work:</b></p><ul style="margin:0 0 6px 18px;padding:0">${we.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  return h;
+}
+
 async function welcomeEmails(q: any, s: any, live: boolean) {
   const { data: c } = await db.from('clients').select('*').eq('id', q.client_id).single();
   const { data: lines } = await db.from('qs_quote_lines').select('description,period_label,is_earlier_year,line_total,runs_until_cancelled,charge_kind').eq('quote_id', q.id).order('sort_order');
@@ -111,11 +141,11 @@ async function welcomeEmails(q: any, s: any, live: boolean) {
       ? `<p><b>Check and sign your CIS registration form.</b> We have filled in HMRC form CIS301 from your answers. Please check the details and sign on screen:</p>${btn(`${web}/cis-registration/sign/?t=${form.access_token}`, 'Check and sign my form')}<p>Once you have signed, we print the form and post it to HMRC. HMRC will write to you to confirm your registration.</p>`
       : form?.form_type === 'sa_reg'
       ? `<p><b>1. Check and sign your registration form.</b> We have filled in HMRC's registration form from your answers. Please check the details and sign on screen:</p>${btn(`${web}/utr-registration/sign/?t=${form.access_token}`, 'Check and sign my form')}<p><b>2. Upload your ID.</b> We have emailed you a separate secure link to upload photo ID and proof of address. The Money Laundering Regulations require us to check your identity before we register you, so please do this as soon as you can.</p><p><b>3. We register you with HMRC</b> once your ID is checked, normally within 5 working days.</p><p><b>4. Your UTR arrives by post.</b> HMRC usually posts it within about 15 working days. Please send us a photo of the letter when it arrives.</p>`
-      : '<p>We will be in touch shortly about the next step.</p>';
+      : await nextSteps(c, lines || [], withId, web, btn);
     await sendTemplate('welcome_oneoff_client', { email: c.email, name: c.full_name }, {
       client_first_name: esc(String(c.full_name || '').trim().split(/\s+/)[0] || 'there'), amount_paid: esc(pounds(paid)), quote_number: esc(q.quote_number),
       service_name: esc((lines || []).map((l: any) => l.description).join(', ')), next_step_block: next, phone: esc(phone),
-      consumer_block: !ltd && !acc?.consumer_start_now ? `<p style="color:#4A5568;font-size:14px">You have 14 days from accepting to cancel. As you did not ask us to start straight away, we will ${form?.form_type === 'sa_reg' ? 'register you' : 'post your form'} once that period has passed.</p>` : '',
+      consumer_block: !ltd && !acc?.consumer_start_now ? `<p style="color:#4A5568;font-size:14px">You have 14 days from accepting to cancel. As you did not ask us to start straight away, we will ${form?.form_type === 'sa_reg' ? 'register you' : form?.form_type === 'cis301' ? 'post your form' : 'start the work'} once that period has passed.</p>` : '',
     }, ids, attachment, { service_name: (lines || []).map((l: any) => l.description).join(', ') });
   } else
   await sendTemplate('welcome_client', { email: c.email, name: c.full_name }, {
