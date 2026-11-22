@@ -74,66 +74,66 @@
     <main class="body" id="main"><div class="done"><div class="spin" aria-hidden="true"></div><p>Checking your payment…</p></div></main>
     <footer class="ft">Accounted4Tax Ltd · Registered in England and Wales, company number 16438537 · Registered office 128 City Road, London EC1V 2NX · Not VAT registered</footer>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/config.js?v=15"></script>
   <script>
   (async function () {
     const cfg = window.A4T_CONFIG;
-    const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const $ = (id) => document.getElementById(id);
     const p = new URLSearchParams(location.search);
     const token = p.get('t');
     const state = (title, text) => { $('main').innerHTML = `<div class="state"><h1 class="title" style="font-size:1.35rem">${esc(title)}</h1><p>${text}</p><p style="margin-top:12px">Questions? Email <a href="mailto:info@accounted4tax.co.uk">info@accounted4tax.co.uk</a> or call 07563 811938.</p></div>`; };
+    // direct call to the Edge Functions – no library to download first (22 Nov 2026)
     async function call(fn, body) {
-      const res = await sb.functions.invoke(fn, { body });
-      if (res.error) {
-        let m = 'Something went wrong. Please try again.', code = '';
-        try { const b = await res.error.context.json(); if (b.error) { m = b.error.message; code = b.error.code; } } catch (_) {}
-        const e = new Error(m); e.code = code; throw e;
-      }
-      return res.data;
+      const r = await fetch(`${cfg.SUPABASE_URL}/functions/v1/${fn}`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${cfg.SUPABASE_PUBLISHABLE_KEY}` }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { const e = new Error((j.error && j.error.message) || 'Something went wrong. Please try again.'); e.code = j.error && j.error.code; throw e; }
+      return j;
     }
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return state('Link not valid', 'This link is incomplete. Please use the link in your email.');
 
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    // straight back from Stripe: say so at once, then finish the checks (20 Nov 2026)
+    // Straight back from Stripe (session_id in the address): Stripe only sends clients here after a successful payment,
+    // so the confirmation shows at once and the details (email, quote number) are filled in after the check (22 Nov 2026).
     const fromStripe = !!p.get('session_id');
-    $('main').innerHTML = `<div class="done"><div class="ok">✓</div><h1 class="title" style="font-size:1.4rem">${fromStripe ? 'Payment received – just finishing up…' : 'Checking your payment…'}</h1><div class="spin" aria-hidden="true"></div><p class="hint">This takes a few seconds. Please don't close this page.</p></div>`;
+    const render = (st) => {
+      const portalHref = (st.portal_url || 'https://accounted4tax.pages.dev/portal/') + (st.email ? '#signin=' + encodeURIComponent(st.email) : '');
+      const steps = st.registration
+        ? ['<b>Check your identity</b> – upload photo ID and proof of address. The law requires it before we start.', '<b>Answer anything we ask</b> in your To do list.',
+           '<b>We register you with HMRC</b> – your reference arrives by post. Please send us a photo of the letter in the portal.']
+        : ['<b>Check your identity</b> – upload photo ID and proof of address. The law requires it before we start.',
+           '<b>Send us your information and documents</b> – everything we need is listed under To do.',
+           '<b>We do the work</b> and, where needed, send it to you to check and approve first.' + (st.balance_later ? ' Any balance is taken when you approve.' : ''),
+           '<b>We submit it</b> and confirm in your portal.'];
+      $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
+        <h1 class="title" style="font-size:1.4rem">Payment received – thank you</h1>
+        <p>${st.quote_number ? `Your payment for quote ${esc(st.quote_number)} has gone through.` : 'Your payment has gone through.'} Stripe will email you a receipt. We have emailed you your next steps.</p>
+        <p style="margin:18px 0 6px"><a class="btn btn-teal" id="go" href="${esc(portalHref)}">Open your portal for the next steps</a></p>
+        <p class="hint" style="margin-top:0">Sign in with ${st.email ? '<b>' + esc(st.email) + '</b>' : 'your email address'} – we email you a 6-digit code. No password needed.</p>
+        <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
+          <ol style="margin:0;padding-left:22px" id="steps">${steps.map(t => `<li>${t}</li>`).join('')}</ol></div>
+        <div id="extra"></div>
+        <p style="margin-top:16px"><button type="button" class="btn btn-ghost btn-sm" id="portal">Manage payments and invoices</button></p>
+        <p class="hint" style="margin-top:-4px">Update your card or download your invoices on Stripe's secure page.</p>
+        <div class="alert alert-error err" id="perr" role="alert"></div></div>`;
+      $('portal').onclick = async () => {
+        const b = $('portal'); b.disabled = true; b.textContent = 'Opening…';
+        try { location.href = (await call('quote-checkout', { action: 'portal', token })).url; }
+        catch (e) { b.disabled = false; b.textContent = 'Manage payments and invoices'; $('perr').textContent = e.message; $('perr').classList.add('show'); }
+      };
+    };
+    if (fromStripe) render({});
     let st = null;
     for (let i = 0; i < 12; i++) {
-      try { st = await call('quote-checkout', { action: 'status', token }); } catch (e) { return state('Something went wrong', esc(e.message)); }
-      if (st.paid || !fromStripe) break;
+      try { st = await call('quote-checkout', { action: 'status', token }); } catch (e) { if (!fromStripe) return state('Something went wrong', esc(e.message)); st = null; }
+      if ((st && st.paid) || !fromStripe) break;
       await sleep(1000);
     }
-    if (st.quote_number) { $('ref').textContent = 'Quote ' + st.quote_number; document.title = `Payment ${st.quote_number} · Accounted4Tax`; }
-    if (!st.paid) return state('Payment not received yet', `We have not received a payment for quote ${esc(st.quote_number || '')} yet. <a href="sign.html?t=${esc(token)}">Go back and pay now</a>.`);
+    if (st && st.quote_number) { $('ref').textContent = 'Quote ' + st.quote_number; document.title = `Payment ${st.quote_number} · Accounted4Tax`; }
+    if (!st || !st.paid) return state('Payment not received yet', `We have not received a payment for ${st && st.quote_number ? 'quote ' + esc(st.quote_number) : 'this quote'} yet. <a href="sign.html?t=${esc(token)}">Go back and pay now</a>.`);
+    render(st);
 
-    // the next steps: the portal is where everything happens now
-    const portalHref = (st.portal_url || 'https://accounted4tax.pages.dev/portal/') + (st.email ? '#signin=' + encodeURIComponent(st.email) : '');
-    const steps = st.registration
-      ? ['<b>Check your identity</b> – upload photo ID and proof of address. The law requires it before we start.', '<b>Answer anything we ask</b> in your To do list.',
-         '<b>We register you with HMRC</b> – your reference arrives by post. Please send us a photo of the letter in the portal.']
-      : ['<b>Check your identity</b> – upload photo ID and proof of address. The law requires it before we start.',
-         `<b>Send us your information and documents</b>${st.ltd ? ', including the company\'s Corporation Tax UTR and Companies House authentication code' : ''} – everything is listed under To do.`,
-         '<b>We prepare the work</b> and send it to you to check and approve.' + (st.balance_later ? ' Any balance is taken when you approve.' : ''),
-         '<b>We submit it</b> and confirm in your portal.'];
-    $('main').innerHTML = `<div class="done"><div class="ok">✓</div>
-      <h1 class="title" style="font-size:1.4rem">Payment received – thank you</h1>
-      <p>Your payment for quote ${esc(st.quote_number)} has gone through. Stripe will email you a receipt.</p>
-      <p style="margin:18px 0 6px"><a class="btn btn-teal" href="${esc(portalHref)}">Open your portal for the next steps</a></p>
-      <p class="hint" style="margin-top:0">Sign in with ${st.email ? '<b>' + esc(st.email) + '</b>' : 'your email address'} – we email you a 6-digit code. No password needed.</p>
-      <div class="sign" style="text-align:left;margin-top:16px"><p style="margin:0 0 6px;font-weight:700;color:var(--navy)">What happens next</p>
-        <ol style="margin:0;padding-left:22px" id="steps">${steps.map(t => `<li>${t}</li>`).join('')}</ol></div>
-      <div id="extra"></div>
-      <p style="margin-top:16px"><button type="button" class="btn btn-ghost btn-sm" id="portal">Manage payments and invoices</button></p>
-      <p class="hint" style="margin-top:-4px">Update your card or download your invoices on Stripe's secure page.</p>
-      <div class="alert alert-error err" id="perr" role="alert"></div></div>`;
-    $('portal').onclick = async () => {
-      const b = $('portal'); b.disabled = true; b.textContent = 'Opening…';
-      try { location.href = (await call('quote-checkout', { action: 'portal', token })).url; }
-      catch (e) { b.disabled = false; b.textContent = 'Manage payments and invoices'; $('perr').textContent = e.message; $('perr').classList.add('show'); }
-    };
     // the signed letter and, for online registrations, the form to sign – in parallel, shown when ready
     const [dl, nx] = await Promise.all([
       call('quote-accept', { action: 'download', token }).catch(() => null),
