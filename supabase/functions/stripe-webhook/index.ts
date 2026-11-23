@@ -183,18 +183,23 @@ async function checkoutCompleted(s: any) {
   const m = metaOf(s), q = await quoteInfo(m.quote_id || s.client_reference_id);
   if (!q) return 'no_quote';
   if (!['paid', 'no_payment_required'].includes(s.payment_status)) return 'not_paid_yet';
-  await db.from('clients').update({ stripe_customer_id: s.customer }).eq('id', q.client_id);
   const upd: any = { status: 'paid', paid_at: new Date().toISOString(), stripe_checkout_session_id: s.id };
-
+  if (s.mode === 'payment') upd.stripe_payment_intent_id = s.payment_intent;
+  // the quote is marked paid while the Stripe set-up runs, so we answer Stripe sooner (23 Nov 2026)
+  const markPaid = (async () => {
+    await db.from('clients').update({ stripe_customer_id: s.customer }).eq('id', q.client_id);
+    await db.from('qs_quotes').update(upd).eq('id', q.id);
+    await db.from('qs_events').insert({ source: 'stripe', event_type: 'quote_paid', client_id: q.client_id, quote_id: q.id,
+      payload: { session: s.id, mode: s.mode, amount: s.amount_total, subscription: s.subscription || null } });
+  })();
+  const stripeSetup = (async () => {
   if (s.mode === 'payment') {
-    upd.stripe_payment_intent_id = s.payment_intent;
     // card kept for the Self Assessment balance → make it the customer's default
     if (Number(q.balance_later) > 0 && s.payment_intent) {
       const pi = await stripe('GET', `payment_intents/${s.payment_intent}`);
       if (pi.payment_method) await stripe('POST', `customers/${s.customer}`, { invoice_settings: { default_payment_method: pi.payment_method } });
     }
   }
-
   if (s.mode === 'subscription' && s.subscription) {
     const sub = await stripe('GET', `subscriptions/${s.subscription}`, { expand: ['items.data.price.product'] });
     const its = sub.items.data.map((it: any) => ({ price: it.price.id, quantity: it.quantity || 1, kind: it.price.product?.metadata?.kind || 'rolling' }));
@@ -222,16 +227,21 @@ async function checkoutCompleted(s: any) {
     // card kept for the Self Assessment balance → make it the customer's default too
     if (Number(q.balance_later) > 0 && sub.default_payment_method) await stripe('POST', `customers/${s.customer}`, { invoice_settings: { default_payment_method: sub.default_payment_method } });
   }
-  await db.from('qs_quotes').update(upd).eq('id', q.id);
-  await db.from('qs_events').insert({ source: 'stripe', event_type: 'quote_paid', client_id: q.client_id, quote_id: q.id,
-    payload: { session: s.id, mode: s.mode, amount: s.amount_total, subscription: s.subscription || null } });
-  try { await welcomeEmails({ ...q, ...upd }, s, !!s.livemode); }
-  catch (e) { await db.from('qs_events').insert({ source: 'system', event_type: 'welcome_email_error', client_id: q.client_id, quote_id: q.id, payload: { error: String((e as Error).message || e).slice(0, 300) } }); }
-  // identity check link for the contact person (directors and PSCs are requested later from the Practice Manager)
-  if (await needsId(q.id)) try {
-    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/aml`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auto', quote_id: q.id }) });
-  } catch (_) { /* logged by the aml function */ }
+  })();
+  await Promise.all([markPaid, stripeSetup]);
+  // Stripe keeps the client on its "paid" tick until we answer this event (up to 10 s), so the emails and the
+  // identity-check link run after we have answered (23 Nov 2026). Errors are still logged for Eduard.
+  const after = async () => {
+    try { await welcomeEmails({ ...q, ...upd }, s, !!s.livemode); }
+    catch (e) { await db.from('qs_events').insert({ source: 'system', event_type: 'welcome_email_error', client_id: q.client_id, quote_id: q.id, payload: { error: String((e as Error).message || e).slice(0, 300) } }); }
+    // identity check link for the contact person (directors and PSCs are requested later from the Practice Manager)
+    if (await needsId(q.id)) try {
+      const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/aml`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auto', quote_id: q.id }) });
+    } catch (_) { /* logged by the aml function */ }
+  };
+  const bg = (globalThis as any).EdgeRuntime;
+  if (bg?.waitUntil) bg.waitUntil(after()); else await after();
   return 'paid';
 }
 
