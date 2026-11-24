@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.122.1
       - name: Deploy the changed functions
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "::error::Add the SUPABASE_ACCESS_TOKEN repository secret"; exit 1; fi
