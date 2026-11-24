@@ -1,0 +1,4 @@
+{
+  "aml": false, "companies-house-lookup": true, "quote-accept": false, "quote-checkout": false,
+  "quote-public": false, "quote-send": true, "send-email": true, "stripe-webhook": false
+}
